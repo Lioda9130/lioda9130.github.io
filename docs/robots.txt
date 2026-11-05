@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://lioda9130.github.io/sitemap.xml
