@@ -3,6 +3,28 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import * as navigation from '../docs/navigation.js';
 import * as THREE from '../docs/vendor/three.module.js';
+import { createCityLife } from '../docs/city-life.js';
+
+for (const compact of [false, true]) {
+  const scene = new THREE.Scene();
+  const life = createCityLife(scene, compact);
+  const crowd = scene.getObjectByName('walking-pedestrians');
+  const taxi = scene.getObjectByName('air-taxi');
+  assert.equal(crowd.count, (compact ? 18 : 34) * 6);
+  const startPose = Array.from(crowd.instanceMatrix.array);
+  const startZ = taxi.position.z;
+  life.update(.5);
+  assert.notDeepEqual(Array.from(crowd.instanceMatrix.array), startPose, 'People walk and articulate');
+  assert.notEqual(taxi.position.z, startZ, 'Traffic moves');
+  const stoppedPose = Array.from(crowd.instanceMatrix.array);
+  life.update(0);
+  assert.deepEqual(Array.from(crowd.instanceMatrix.array), stoppedPose, 'Paused simulation does not jump');
+  for (let i = 0; i < 400; i++) life.update(.05);
+  assert.ok(Array.from(crowd.instanceMatrix.array).every(Number.isFinite));
+  for (const vehicle of scene.children.filter(child => child.name === 'air-taxi')) {
+    assert.ok(vehicle.position.y > 8, 'Air traffic stays above the walking camera');
+  }
+}
 
 assert.deepEqual(navigation.streetPosition(100, -999), { x: 6, z: -148 });
 assert.deepEqual(navigation.streetPosition(-100, 999), { x: -6, z: 35 });
@@ -18,6 +40,22 @@ for (let i = 0; i <= 100; i++) {
   previous = value;
 }
 assert.equal(previous, 1);
+
+// Retargeting must retain momentum, then brake smoothly without a position jump.
+const moving = { x: 0, z: 35 }, speed = { x: 0, z: 0 };
+for (let i = 0; i < 60; i++) navigation.advanceTravel(moving, speed, { x: 0, z: -100 }, 1 / 60);
+const before = { ...moving }, beforeSpeed = speed.z;
+navigation.advanceTravel(moving, speed, { x: 3, z: 25 }, 1 / 60);
+assert.ok(Math.abs(speed.z - beforeSpeed) < 3, 'Retargeting preserves velocity');
+assert.ok(Math.hypot(moving.x - before.x, moving.z - before.z) < .5, 'No teleport on retarget');
+for (let i = 0; i < 900; i++) navigation.advanceTravel(moving, speed, { x: 3, z: 25 }, 1 / 60);
+assert.ok(Math.hypot(moving.x - 3, moving.z - 25) < .02);
+const frameRates = [30, 60, 144].map(fps => {
+  const point = { x: 0, z: 35 }, velocity = { x: 0, z: 0 };
+  for (let i = 0; i < fps * 3; i++) navigation.advanceTravel(point, velocity, { x: 2, z: 20 }, 1 / fps);
+  return point;
+});
+assert.ok(Math.abs(frameRates[0].z - frameRates[2].z) < .001, 'Frame-rate independent damping');
 
 const camera = new THREE.PerspectiveCamera(62, 16 / 9, .1, 550);
 camera.position.set(0, 4.2, 35);
@@ -97,7 +135,7 @@ await appModule.link(specifier => {
   return navModule;
 });
 await appModule.evaluate();
-function frames(count = 130) {
+function frames(count = 330) {
   for (let i = 0; i < count && queuedFrame; i++) {
     const callback = queuedFrame; queuedFrame = null;
     now += 50; callback(now);

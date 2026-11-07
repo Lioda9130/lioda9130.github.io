@@ -10,6 +10,7 @@ Website: https://lioda9130.github.io/
 - `docs/styles.css`: responsive layout and styles
 - `docs/app.js`: pointer/keyboard navigation, camera travel, dialogs, motion preferences, and graceful fallback
 - `docs/city.js`: procedural buildings, signs, lights, atmosphere, and street raycasting
+- `docs/city-life.js`: instanced walking pedestrians and animated air taxis
 - `docs/navigation.js`: destination positions and movement bounds
 - `docs/vendor/`: self-hosted Three.js 0.170.0 and its MIT license
 - `docs/favicon.svg`: site icon
@@ -21,6 +22,8 @@ Buildless HTML, CSS, and JavaScript modules. No package installation or build st
 ## Explore
 
 - Click or tap the street to move to that position. Buildings and sky are not movement targets.
+- Movement retains momentum when you click a new target, with gradual acceleration and braking.
+- Animated pedestrians walk along the sidewalks; air taxis travel above the boulevard. Mobile devices use fewer characters and vehicles.
 - Choose a numbered marker, map destination, or navigation link to travel to a section and open its information panel.
 - Focus the scene and use the arrow keys to move; `R` resets the view and `Escape` cancels travel.
 - `Motion: off` freezes ambient animation and makes travel immediate. System reduced-motion preferences are respected.

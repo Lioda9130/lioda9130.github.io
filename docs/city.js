@@ -1,13 +1,14 @@
 import * as THREE from './vendor/three.module.js';
+import { createCityLife } from './city-life.js';
 
 // Procedural geometry and textures: no stock city, remote fonts, or model downloads.
 export function createCity(canvas) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, innerWidth < 760 ? 1.35 : 1.65));
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, innerWidth < 760 ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#080c1b');
-  scene.fog = new THREE.FogExp2('#101627', .0105);
+  scene.fog = new THREE.FogExp2('#0d182b', .0065);
   const camera = new THREE.PerspectiveCamera(62, 1, .1, 550);
   const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
   const planeGeometry = new THREE.PlaneGeometry(1, 1);
@@ -35,6 +36,7 @@ export function createCity(canvas) {
     draw(image.getContext('2d'));
     const texture = new THREE.CanvasTexture(image);
     texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     return texture;
   }
   const windowMaterials = ['#57c7d8', '#dd508d', '#8d89c9', '#e3b082'].map((color, i) => {
@@ -43,7 +45,7 @@ export function createCity(canvas) {
       ctx.fillRect(0, 0, 128, 256);
       for (let y = 5; y < 256; y += 11) {
         for (let x = 5; x < 128; x += 10) {
-          ctx.globalAlpha = random() > .46 ? .25 + random() * .65 : .05;
+          ctx.globalAlpha = random() > .40 ? .48 + random() * .52 : .08;
           ctx.fillStyle = color;
           ctx.fillRect(x, y, 3 + random() * 3, 4);
         }
@@ -166,6 +168,8 @@ export function createCity(canvas) {
   moon.position.set(65, 84, -270); scene.add(moon);
   glow(65, 84, -269, '#405b84', 85, .22);
   const train = unitBox(-80, 41, -175, 15, .6, .8, cyan);
+  const cityLife = createCityLife(scene, innerWidth < 760);
+  let ambientTime = 0;
   const beacon = new THREE.Mesh(new THREE.RingGeometry(.6, .67, 40), new THREE.MeshBasicMaterial({ color: '#8ffff4', transparent: true, opacity: .8, side: THREE.DoubleSide, depthWrite: false }));
   beacon.rotation.x = -Math.PI / 2; beacon.position.y = .15; beacon.visible = false; scene.add(beacon);
   const raycaster = new THREE.Raycaster();
@@ -199,13 +203,15 @@ export function createCity(canvas) {
     marker(x, z, visible) { beacon.position.set(x, .15, z); beacon.visible = visible; },
     render(delta, time, animated) {
       if (animated) {
+        ambientTime += delta;
+        cityLife.update(delta);
         for (let i = 1; i < rainPositions.length; i += 3) {
           rainPositions[i] -= delta * 10;
           if (rainPositions[i] < 0) rainPositions[i] = 65;
         }
         rainGeometry.attributes.position.needsUpdate = true;
-        train.position.x = ((time * 9) % 180) - 90;
-        beacon.scale.setScalar(1 + Math.sin(time * 4) * .15);
+        train.position.x = ((ambientTime * 9) % 180) - 90;
+        beacon.scale.setScalar(1 + Math.sin(ambientTime * 4) * .15);
       }
       renderer.render(scene, camera);
     },

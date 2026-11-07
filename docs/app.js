@@ -1,4 +1,4 @@
-import { destinations, homePosition, streetPosition, destinationPosition, easeTravel } from './navigation.js';
+import { destinations, homePosition, streetPosition, destinationPosition, advanceTravel } from './navigation.js';
 
 const canvas = document.querySelector('#city');
 const status = document.querySelector('#travel-status');
@@ -19,6 +19,7 @@ let elapsed = 0;
 let entered = false;
 let returnFocus = null;
 const position = { ...homePosition };
+const velocity = { x: 0, z: 0 };
 const pointer = { x: 0, y: 0 };
 const view = { x: 0, y: 0 };
 const markers = [];
@@ -50,11 +51,9 @@ function moveTo(target, onArrival = null) {
   if (!ready) return;
   enter();
   const end = streetPosition(target.x, target.z);
-  const distance = Math.hypot(end.x - position.x, end.z - position.z);
   // A new click always replaces the previous route and pending destination.
   travel = {
-    start: { ...position }, end, age: 0,
-    duration: animated ? Math.min(4.3, 1 + distance * .045) : 0,
+    end,
     onArrival,
   };
   city.marker(end.x, end.z, true);
@@ -98,12 +97,10 @@ dialog.addEventListener('close', () => {
 
 motionButton.addEventListener('click', () => {
   animated = !animated;
-  if (!animated && travel) travel.duration = 0;
   syncMotion(); dirty = true; requestFrame();
 });
 motionPreference.addEventListener('change', event => {
   animated = !event.matches;
-  if (!animated && travel) travel.duration = 0;
   syncMotion(); dirty = true; requestFrame();
 });
 
@@ -147,7 +144,7 @@ canvas.addEventListener('keydown', event => {
   } else if (event.key.toLowerCase() === 'r') {
     event.preventDefault(); reset();
   } else if (event.key === 'Escape') {
-    travel = null; city.marker(0, 0, false);
+    travel = null; velocity.x = velocity.z = 0; city.marker(0, 0, false);
     status.textContent = 'TRAVEL PAUSED'; dirty = true; requestFrame();
   }
 });
@@ -161,12 +158,10 @@ function tick(now) {
   lastTime = now;
   elapsed += delta;
   if (travel) {
-    travel.age += delta;
-    const t = travel.duration ? Math.min(1, travel.age / travel.duration) : 1;
-    const eased = easeTravel(t);
-    position.x = travel.start.x + (travel.end.x - travel.start.x) * eased;
-    position.z = travel.start.z + (travel.end.z - travel.start.z) * eased;
-    if (t === 1) {
+    const arrived = !animated || advanceTravel(position, velocity, travel.end, delta);
+    if (arrived) {
+      Object.assign(position, travel.end);
+      velocity.x = velocity.z = 0;
       const done = travel.onArrival;
       travel = null; city.marker(0, 0, false);
       status.textContent = 'CHOOSE A DESTINATION. MAKE YOUR OWN WAY.';
@@ -233,7 +228,7 @@ try {
   new IntersectionObserver(entries => {
     inView = entries[0].isIntersecting;
     if (!inView && frame !== null) { cancelAnimationFrame(frame); frame = null; }
-    if (!inView) { travel = null; city.marker(0, 0, false); }
+    if (!inView) { travel = null; velocity.x = velocity.z = 0; city.marker(0, 0, false); }
     lastTime = 0; dirty = true; requestFrame();
   }, { threshold: .05 }).observe(canvas);
   canvas.addEventListener('webglcontextlost', event => {
