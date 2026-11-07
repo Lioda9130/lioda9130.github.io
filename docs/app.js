@@ -1,4 +1,4 @@
-import { destinations, homePosition, streetPosition, destinationPosition, advanceTravel } from './navigation.js';
+import { destinations, homePosition, streetPosition, destinationPosition, advanceTravel } from './navigation.js?v=20261108';
 
 const canvas = document.querySelector('#city');
 const status = document.querySelector('#travel-status');
@@ -8,6 +8,11 @@ const motionButton = document.querySelector('#motion-toggle');
 const resetButton = document.querySelector('#reset-view');
 const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
 let animated = !motionPreference.matches;
+let motionOverride = false;
+try {
+  const saved = localStorage.getItem('neon-district-motion');
+  if (saved === 'on' || saved === 'off') { animated = saved === 'on'; motionOverride = true; }
+} catch { /* Storage can be unavailable; system preference remains the default. */ }
 let city;
 let ready = false;
 let travel = null;
@@ -27,6 +32,8 @@ const markers = [];
 function syncMotion() {
   motionButton.textContent = `Motion: ${animated ? 'on' : 'off'}`;
   motionButton.setAttribute('aria-pressed', String(!animated));
+  if (ready && !travel && !dialog.open) status.textContent = animated
+    ? 'YOUR CITY. YOUR DIRECTION.' : 'MOTION OFF — CLICK TO CHANGE LOCATION';
 }
 syncMotion();
 
@@ -97,9 +104,12 @@ dialog.addEventListener('close', () => {
 
 motionButton.addEventListener('click', () => {
   animated = !animated;
+  motionOverride = true;
+  try { localStorage.setItem('neon-district-motion', animated ? 'on' : 'off'); } catch { /* Optional persistence. */ }
   syncMotion(); dirty = true; requestFrame();
 });
 motionPreference.addEventListener('change', event => {
+  if (motionOverride) return;
   animated = !event.matches;
   syncMotion(); dirty = true; requestFrame();
 });
@@ -205,7 +215,7 @@ function unavailable(message) {
 }
 
 try {
-  const { createCity } = await import('./city.js');
+  const { createCity } = await import('./city.js?v=20261108');
   city = createCity(canvas);
   city.resize();
   for (const destination of destinations) {

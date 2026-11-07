@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { createCityLife } from './city-life.js';
+import { createCityLife } from './city-life.js?v=20261108';
 
 // Procedural geometry and textures: no stock city, remote fonts, or model downloads.
 export function createCity(canvas) {

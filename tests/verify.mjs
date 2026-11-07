@@ -131,7 +131,7 @@ await cityModule.evaluate();
 const source = await readFile(new URL('../docs/app.js', import.meta.url), 'utf8');
 const appModule = new vm.SourceTextModule(source, { context, importModuleDynamically: () => cityModule });
 await appModule.link(specifier => {
-  assert.equal(specifier, './navigation.js');
+  assert.equal(specifier.split('?')[0], './navigation.js');
   return navModule;
 });
 await appModule.evaluate();
