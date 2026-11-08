@@ -8,7 +8,7 @@
 - [x] Codex 현재 코드·모델 검증
 - [ ] 소유자 M0/M1 구현 범위 확정
 - [ ] M0 동일 조건 화면·성능 측정
-- [x] 검토용 브랜치 준비: `codex/neon-district-5-review`
+- [x] 검토용 브랜치 및 [초안 PR #1](https://github.com/Lioda9130/lioda9130.github.io/pull/1) 생성: `codex/neon-district-5-review`
 - [ ] M0 구현 PR (이번 문서 PR과 별개)
 
 **검토일:** 2026-11-08
