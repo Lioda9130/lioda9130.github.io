@@ -1,4 +1,4 @@
-import { destinations, homePosition, destinationPosition, moveInStreet, routeTo, CITY } from './navigation.js?v=nd4';
+import { destinations, homePosition, destinationPosition, moveInStreet, routeTo, CITY } from './navigation.js?v=city-night';
 
 const canvas=document.querySelector('#city');
 const status=document.querySelector('#travel-status');
@@ -20,6 +20,7 @@ let needsFrame=true;
 
 function requestFrame(){if(ready&&inView&&!document.hidden&&frame===null)frame=requestAnimationFrame(tick);}
 function enter(){entered=true;intro.classList.add('dismissed');}
+document.querySelector('#enter-city').addEventListener('click',e=>{if(!ready)return;e.preventDefault();enter();canvas.focus({preventScroll:true});updateStatus('EXPLORE FREELY · DRAG TO LOOK · WASD TO WALK');requestFrame();});
 function updateStatus(text){if(status.textContent!==text)status.textContent=text;}
 function setMarker(){const end=travel?.path[travel.index];city.marker(end?.x||0,end?.z||0,Boolean(end));}
 function travelTo(point,onArrival=null){
@@ -31,14 +32,7 @@ function travelTo(point,onArrival=null){
   travel={path,index:0,onArrival};setMarker();
   updateStatus('TRAVELLING TO SELECTED STREET');requestFrame();
 }
-function openDestination(destination){
-  const section=document.getElementById(destination.id);
-  document.querySelector('#dialog-number').textContent=section.querySelector('.eyebrow').textContent;
-  document.querySelector('#dialog-title').textContent=section.querySelector('h2').textContent;
-  document.querySelector('#dialog-copy').replaceChildren(...Array.from(section.children).filter(el=>!el.matches('h2,.eyebrow')).map(el=>el.cloneNode(true)));
-  if(!dialog.open)dialog.showModal();
-  updateStatus(`${destination.number} — ARRIVED`);
-}
+function openDestination(destination){updateStatus(`${destination.name.toUpperCase()} · KEEP EXPLORING`);}
 function goToDestination(id,trigger){const d=destinations.find(d=>d.id===id);if(!d)return;returnFocus=trigger;travelTo(destinationPosition(d),()=>openDestination(d));}
 for(const control of document.querySelectorAll('[data-destination]')){
   control.addEventListener('click',e=>{
@@ -148,7 +142,7 @@ function tick(now){
 }
 function unavailable(message){ready=false;travel=null;if(frame!==null)cancelAnimationFrame(frame);frame=null;document.body.classList.add('city-unavailable');updateStatus(message);}
 try{
-  const module=await import('./city.js?v=nd4');city=module.createCity(canvas);city.resize();canvas.dataset.pedestrians=String(city.stats?.pedestrians||0);canvas.dataset.vehicles=String(city.stats?.vehicles||0);canvas.dataset.glbModels='true';
+  const module=await import('./city.js?v=city-night');city=module.createCity(canvas);city.resize();canvas.dataset.pedestrians=String(city.stats?.pedestrians||0);canvas.dataset.vehicles=String(city.stats?.vehicles||0);canvas.dataset.glbModels='true';
   for(const destination of destinations){
     const element=document.createElement('button');element.className='world-marker';element.type='button';element.hidden=true;
     const diamond=document.createElement('span');diamond.className='diamond';diamond.setAttribute('aria-hidden','true');

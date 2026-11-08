@@ -139,3 +139,17 @@ dialog::backdrop { background: #02040c88; backdrop-filter: blur(8px); }
 .minimap{background:#0b1721c9;border:1px solid #97c2d44a;backdrop-filter:blur(6px);}
 .world-marker{background:#0e1c2acc;border:1px solid #91cadb55;}
 .coordinates{color:#e0eef4;text-shadow:0 1px 3px #05090e;}
+
+/* Exploration-first night city. */
+.experience {background:#070b20}
+.atmosphere {background:linear-gradient(0deg,#060817b0,transparent 24%,transparent 80%,#06081766)}
+.intro h1 {font-size:clamp(52px,7vw,104px)}
+.brand-caption {color:#8de8ef}
+.enter-link {color:#b1fff4}
+.world-marker {background:#0a1027cf;border-color:#65e3e866}
+.minimap {border-color:#65e3e844;background:#090e22d9}
+.point-work {left:29.1%;top:28.9%;right:auto;bottom:auto}
+.point-about {left:70.9%;top:28.9%;right:auto;bottom:auto}
+.point-connect {left:50%;top:71.1%;right:auto;bottom:auto}
+.map-point {transform:translate(-50%,-50%)}
+@media(max-width:600px){.site-header nav{gap:12px}.site-header nav a{font-size:10px}.brand-caption{font-size:7px}}

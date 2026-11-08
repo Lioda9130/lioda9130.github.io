@@ -9,9 +9,9 @@ export const CITY = Object.freeze({
 });
 export const homePosition = {x: 0, z: 82};
 export const destinations = [
-  {id:'work',name:'The work',number:'01',x:-48,z:12},
-  {id:'about',name:'The person',number:'02',x:48,z:12},
-  {id:'connect',name:'The connection',number:'03',x:0,z:-108},
+  {id:'market',name:'Night market',number:'01',x:-48,z:12},
+  {id:'plaza',name:'Neon plaza',number:'02',x:48,z:12},
+  {id:'transit',name:'Skyrail',number:'03',x:0,z:-108},
 ];
 export function nearStreet(x,z,margin=0){
   if(!Number.isFinite(x)||!Number.isFinite(z)||x<CITY.minX||x>CITY.maxX||z<CITY.minZ||z>CITY.maxZ)return false;

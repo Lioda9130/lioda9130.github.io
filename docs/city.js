@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
-import { CITY, nearStreet } from './navigation.js?v=nd4';
-import { createCityLife } from './city-life.js?v=nd4';
-import { loadModel,modelPath } from './neon4-loader.js?v=nd4';
+import { CITY, nearStreet } from './navigation.js?v=city-night';
+import { createCityLife } from './city-life.js?v=city-night';
+import { loadModel,modelPath } from './neon4-loader.js?v=city-night';
 
 // Neon District 3.1 — detailed blue-hour street and unique facades. Procedural layouts are
 // intentionally distinct at street level; six local PBR maps ship with the patch.
@@ -13,17 +13,18 @@ export function createCity(canvas) {
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure=1.19;
   const scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x607c9d);
-  scene.fog=new THREE.FogExp2(0x6c7f99,.0015);
+  scene.background=new THREE.Color(0x070b20);
+  scene.fog=new THREE.FogExp2(0x11152d,.0035);
   const camera=new THREE.PerspectiveCamera(65,1,.1,850);
   const fogPlane=new THREE.Mesh(new THREE.SphereGeometry(490,28,16),new THREE.ShaderMaterial({
     side:THREE.BackSide,depthWrite:false,fog:false,
     vertexShader:'varying vec3 dir; void main(){dir=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader:'varying vec3 dir; void main(){float h=clamp(normalize(dir).y*.5+.5,0.,1.); vec3 low=vec3(.70,.53,.62);vec3 high=vec3(.22,.37,.62);gl_FragColor=vec4(mix(low,high,smoothstep(.15,.95,h)),1.);}'
+    fragmentShader:'varying vec3 dir; void main(){float h=clamp(normalize(dir).y*.5+.5,0.,1.); vec3 low=vec3(.12,.055,.19);vec3 high=vec3(.012,.025,.07);gl_FragColor=vec4(mix(low,high,smoothstep(.15,.95,h)),1.);}'
   }));scene.add(fogPlane);
-  scene.add(new THREE.HemisphereLight('#d2e1f2','#45556b',1.3));
-  const sun=new THREE.DirectionalLight('#f1cbab',1.65);sun.position.set(-100,125,65);scene.add(sun);
-  const fill=new THREE.DirectionalLight('#93b8ea',.55);fill.position.set(85,55,-115);scene.add(fill);
+  scene.add(new THREE.HemisphereLight('#829cc9','#181327',1.05));
+  const sun=new THREE.DirectionalLight('#a9bded',.8);sun.position.set(-100,125,65);scene.add(sun);
+  const fill=new THREE.DirectionalLight('#ec68c9',.65);fill.position.set(85,55,-115);scene.add(fill);
+  for(const [x,z,color] of [[-48,12,'#ff4ab8'],[48,12,'#45e7ff'],[0,-108,'#9d71ff']]){const light=new THREE.PointLight(color,95,48,1.5);light.position.set(x,7,z);scene.add(light);}
   let seed=913031;const rnd=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
   const rand=(a,b)=>a+(b-a)*rnd(),choose=a=>a[Math.floor(rnd()*a.length)%a.length];
   const geom={box:new THREE.BoxGeometry(1,1,1),plane:new THREE.PlaneGeometry(1,1),cyl:new THREE.CylinderGeometry(1,1,1,12)};

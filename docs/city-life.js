@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
-import {CITY} from './navigation.js?v=nd4';
-import {loadModel, modelPath} from './neon4-loader.js?v=nd4';
+import {CITY} from './navigation.js?v=city-night';
+import {loadModel, modelPath} from './neon4-loader.js?v=city-night';
 
 // Dynamic actors using original character / vehicle GLBs, not cubes or sprites.
 export function createCityLife(scene,compact=false){

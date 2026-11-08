@@ -1,16 +1,18 @@
-# Lioda9130 — Neon District 4.0
+# Neon District — A city after dark
 
 Live site: https://lioda9130.github.io/
 
 Installed from the user-supplied install_neon_district_4.py package (SHA-256: 2156f3d4d2f4a7bbb83f5492e205fef119c15ba092fafee2e59ce234762e9d70).
 The package contains 34 GLB models, local surface textures, city navigation and animated traffic/pedestrians. Its texture paths were corrected to match the packaged files.
 
+The project is an explorable cyberpunk city, centered on atmosphere, wandering and street life. The creator credit remains in the footer; the experience is no longer a personal portfolio.
+
 ## Explore
 
 - Drag the scene to look around in 360 degrees.
 - Click a road to travel, or walk with WASD / arrow keys. Hold Shift to move faster.
-- Choose Work, About or Connect to travel to a section.
-- Use Reset view, Motion and Text view controls as needed.
+- Choose Night market, Neon plaza or Skyrail to travel between districts without opening a popup.
+- Use Reset view, Motion and City guide controls as needed.
 
 ## Development
 
