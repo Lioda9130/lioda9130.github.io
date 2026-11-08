@@ -1,252 +1,166 @@
-import { destinations, homePosition, streetPosition, destinationPosition, advanceTravel } from './navigation.js?v=20261108';
+import { destinations, homePosition, destinationPosition, moveInStreet, routeTo, CITY } from './navigation.js?v=nd4';
 
-const canvas = document.querySelector('#city');
-const status = document.querySelector('#travel-status');
-const intro = document.querySelector('#intro');
-const dialog = document.querySelector('#destination-dialog');
-const motionButton = document.querySelector('#motion-toggle');
-const resetButton = document.querySelector('#reset-view');
-const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
-let animated = !motionPreference.matches;
-let motionOverride = false;
-try {
-  const saved = localStorage.getItem('neon-district-motion');
-  if (saved === 'on' || saved === 'off') { animated = saved === 'on'; motionOverride = true; }
-} catch { /* Storage can be unavailable; system preference remains the default. */ }
-let city;
-let ready = false;
-let travel = null;
-let dirty = true;
-let inView = true;
-let frame = null;
-let lastTime = 0;
-let elapsed = 0;
-let entered = false;
-let returnFocus = null;
-const position = { ...homePosition };
-const velocity = { x: 0, z: 0 };
-const pointer = { x: 0, y: 0 };
-const view = { x: 0, y: 0 };
-const markers = [];
+const canvas=document.querySelector('#city');
+const status=document.querySelector('#travel-status');
+const intro=document.querySelector('#intro');
+const dialog=document.querySelector('#destination-dialog');
+const motionButton=document.querySelector('#motion-toggle');
+const resetButton=document.querySelector('#reset-view');
+const mapPlayer=document.querySelector('#map-player');
+const coordinates=document.querySelector('#coordinates');
+const markers=[];
+const position={...homePosition};
+let ready=false, city, frame=null, lastTime=0, inView=true, entered=false, travel=null, returnFocus=null;
+let animated=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+try {const value=localStorage.getItem('neon-district-motion');if(value==='on'||value==='off')animated=value==='on';}catch{}
+const keys=new Set();
+const look={yaw:0,pitch:0,targetYaw:0,targetPitch:0};
+const drag={active:false,moved:0,x:0,y:0,id:null};
+let needsFrame=true;
 
-function syncMotion() {
-  motionButton.textContent = `Motion: ${animated ? 'on' : 'off'}`;
-  motionButton.setAttribute('aria-pressed', String(!animated));
-  if (ready && !travel && !dialog.open) status.textContent = animated
-    ? 'YOUR CITY. YOUR DIRECTION.' : 'MOTION OFF — CLICK TO CHANGE LOCATION';
-}
-syncMotion();
-
-function openDestination(destination) {
-  const section = document.getElementById(destination.id);
-  document.querySelector('#dialog-number').textContent = section.querySelector('.eyebrow').textContent;
-  document.querySelector('#dialog-title').textContent = section.querySelector('h2').textContent;
-  const copy = document.querySelector('#dialog-copy');
-  copy.replaceChildren(...Array.from(section.children)
-    .filter(element => !element.matches('h2, .eyebrow'))
-    .map(element => element.cloneNode(true)));
-  if (!dialog.open) dialog.showModal();
-  status.textContent = `${destination.number} / ${destination.name.toUpperCase()} — ARRIVED`;
-}
-
-function enter() {
-  entered = true;
-  intro.classList.add('dismissed');
-}
-
-function moveTo(target, onArrival = null) {
-  if (!ready) return;
+function requestFrame(){if(ready&&inView&&!document.hidden&&frame===null)frame=requestAnimationFrame(tick);}
+function enter(){entered=true;intro.classList.add('dismissed');}
+function updateStatus(text){if(status.textContent!==text)status.textContent=text;}
+function setMarker(){const end=travel?.path[travel.index];city.marker(end?.x||0,end?.z||0,Boolean(end));}
+function travelTo(point,onArrival=null){
+  if(!ready)return;
   enter();
-  const end = streetPosition(target.x, target.z);
-  // A new click always replaces the previous route and pending destination.
-  travel = {
-    end,
-    onArrival,
-  };
-  city.marker(end.x, end.z, true);
-  status.textContent = 'MOVING THROUGH THE DISTRICT';
+  let path=routeTo(position,point);
+  // Don't step back through the player while selecting an adjacent street section.
+  path=path.filter((p,i)=>i===path.length-1||Math.hypot(p.x-position.x,p.z-position.z)>.8);
+  travel={path,index:0,onArrival};setMarker();
+  updateStatus('TRAVELLING TO SELECTED STREET');requestFrame();
+}
+function openDestination(destination){
+  const section=document.getElementById(destination.id);
+  document.querySelector('#dialog-number').textContent=section.querySelector('.eyebrow').textContent;
+  document.querySelector('#dialog-title').textContent=section.querySelector('h2').textContent;
+  document.querySelector('#dialog-copy').replaceChildren(...Array.from(section.children).filter(el=>!el.matches('h2,.eyebrow')).map(el=>el.cloneNode(true)));
+  if(!dialog.open)dialog.showModal();
+  updateStatus(`${destination.number} — ARRIVED`);
+}
+function goToDestination(id,trigger){const d=destinations.find(d=>d.id===id);if(!d)return;returnFocus=trigger;travelTo(destinationPosition(d),()=>openDestination(d));}
+for(const control of document.querySelectorAll('[data-destination]')){
+  control.addEventListener('click',e=>{
+    if(!ready){if(control.tagName==='BUTTON')document.getElementById(control.dataset.destination)?.scrollIntoView();return;}
+    e.preventDefault();goToDestination(control.dataset.destination,control);
+  });
+}
+const close=()=>dialog.close();
+document.querySelector('#close-dialog').addEventListener('click',close);
+document.querySelector('#continue-exploring').addEventListener('click',close);
+dialog.addEventListener('click',e=>{if(e.target===dialog)close();});
+dialog.addEventListener('close',()=>{updateStatus('DRAG TO LOOK · CLICK ROAD TO MOVE');(returnFocus?.isConnected?returnFocus:canvas).focus({preventScroll:true});returnFocus=null;requestFrame();});
+function syncMotion(){motionButton.textContent=`Motion: ${animated?'on':'off'}`;motionButton.setAttribute('aria-pressed',String(!animated));requestFrame();}
+motionButton.addEventListener('click',()=>{animated=!animated;try{localStorage.setItem('neon-district-motion',animated?'on':'off');}catch{}syncMotion();});
+syncMotion();
+function reset(){
+  Object.assign(position,homePosition);travel=null;keys.clear();
+  look.yaw=look.targetYaw=0;look.pitch=look.targetPitch=0;
+  entered=false;intro.classList.remove('dismissed');city?.marker(0,0,false);
+  updateStatus('VIEW RESET · START EXPLORING');requestFrame();
+}
+resetButton.addEventListener('click',reset);
+canvas.addEventListener('pointerdown',e=>{
+  if(!ready||e.button!==0)return;
+  canvas.focus({preventScroll:true});canvas.setPointerCapture(e.pointerId);
+  drag.active=true;drag.moved=0;drag.x=e.clientX;drag.y=e.clientY;drag.id=e.pointerId;
+});
+canvas.addEventListener('pointermove',e=>{
+  if(!ready||!drag.active||e.pointerId!==drag.id)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  drag.x=e.clientX;drag.y=e.clientY;drag.moved+=Math.abs(dx)+Math.abs(dy);
+  if(drag.moved>3){
+    enter();
+    // Drag to the right -> scenery moves left (both axes follow inverted cursor).
+    look.targetYaw+=dx*.005;
+    look.targetPitch=Math.max(-1.25,Math.min(1.25,look.targetPitch-dy*.004));
+    requestFrame();
+  }
+});
+canvas.addEventListener('pointerup',e=>{
+  if(!drag.active||e.pointerId!==drag.id)return;
+  drag.active=false;
+  if(drag.moved<=3&&e.button===0){
+    const hit=city.streetHit(e.clientX,e.clientY);
+    if(hit)travelTo(hit);
+    else updateStatus('CLICK A VISIBLE ROAD OR USE WASD');
+  }
   requestFrame();
-}
-
-function goToDestination(id, trigger) {
-  const destination = destinations.find(item => item.id === id);
-  if (!destination) return;
-  returnFocus = trigger;
-  moveTo(destinationPosition(destination), () => openDestination(destination));
-}
-
-document.querySelectorAll('[data-destination]').forEach(control => {
-  control.addEventListener('click', event => {
-    if (!ready) {
-      // Buttons on the map also have a useful non-WebGL path.
-      if (control.tagName === 'BUTTON') document.getElementById(control.dataset.destination).scrollIntoView();
-      return;
-    }
-    event.preventDefault();
-    goToDestination(control.dataset.destination, control);
-  });
 });
-
-function closeDialog() { dialog.close(); }
-document.querySelector('#close-dialog').addEventListener('click', closeDialog);
-document.querySelector('#continue-exploring').addEventListener('click', closeDialog);
-dialog.addEventListener('click', event => {
-  if (event.target !== dialog) return;
-  const bounds = dialog.getBoundingClientRect();
-  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeDialog();
+canvas.addEventListener('pointercancel',()=>{drag.active=false;});
+window.addEventListener('keydown',e=>{
+  if(!ready||dialog.open||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
+  const k=e.key.toLowerCase();
+  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift'].includes(k)){
+    keys.add(k);if(k!=='shift'){enter();e.preventDefault();}requestFrame();
+  } else if(k==='r'&&document.activeElement===canvas){e.preventDefault();reset();}
+  else if(k==='escape'){travel=null;city.marker(0,0,false);updateStatus('TRAVEL CANCELLED');requestFrame();}
 });
-dialog.addEventListener('close', () => {
-  status.textContent = 'CHOOSE A DESTINATION. MAKE YOUR OWN WAY.';
-  (returnFocus?.isConnected ? returnFocus : canvas).focus({ preventScroll: true });
-  returnFocus = null;
-  dirty = true; requestFrame();
-});
-
-motionButton.addEventListener('click', () => {
-  animated = !animated;
-  motionOverride = true;
-  try { localStorage.setItem('neon-district-motion', animated ? 'on' : 'off'); } catch { /* Optional persistence. */ }
-  syncMotion(); dirty = true; requestFrame();
-});
-motionPreference.addEventListener('change', event => {
-  if (motionOverride) return;
-  animated = !event.matches;
-  syncMotion(); dirty = true; requestFrame();
-});
-
-function reset() {
-  pointer.x = pointer.y = 0;
-  moveTo(homePosition, () => {
-    entered = false;
-    intro.classList.remove('dismissed');
-    status.textContent = 'YOUR CITY. YOUR DIRECTION.';
-  });
-}
-resetButton.addEventListener('click', reset);
-canvas.addEventListener('pointermove', event => {
-  if (!ready || event.pointerType === 'touch') return;
-  const bounds = canvas.getBoundingClientRect();
-  pointer.x = (event.clientX - bounds.left) / bounds.width * 2 - 1;
-  pointer.y = (event.clientY - bounds.top) / bounds.height * 2 - 1;
-  dirty = true; requestFrame();
-});
-canvas.addEventListener('pointerleave', () => { pointer.x = pointer.y = 0; dirty = true; requestFrame(); });
-let pointerDown = null;
-canvas.addEventListener('pointerdown', event => { pointerDown = { x: event.clientX, y: event.clientY }; });
-canvas.addEventListener('pointercancel', () => { pointerDown = null; });
-canvas.addEventListener('pointerup', event => {
-  if (!ready || !pointerDown || event.button !== 0) return;
-  const dragDistance = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
-  pointerDown = null;
-  if (dragDistance > 12) return; // A touch scroll is not a travel command.
-  const hit = city.streetHit(event.clientX, event.clientY);
-  if (hit) moveTo(hit);
-  else status.textContent = 'CLICK THE STREET OR CHOOSE A NUMBERED DESTINATION';
-});
-canvas.addEventListener('keydown', event => {
-  if (!ready) return;
-  const directions = { ArrowUp: [0, -12], ArrowDown: [0, 12], ArrowLeft: [-3, 0], ArrowRight: [3, 0] };
-  if (directions[event.key]) {
-    event.preventDefault();
-    const base = travel?.end || position;
-    const [x, z] = directions[event.key];
-    moveTo({ x: base.x + x, z: base.z + z });
-  } else if (event.key.toLowerCase() === 'r') {
-    event.preventDefault(); reset();
-  } else if (event.key === 'Escape') {
-    travel = null; velocity.x = velocity.z = 0; city.marker(0, 0, false);
-    status.textContent = 'TRAVEL PAUSED'; dirty = true; requestFrame();
+window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+window.addEventListener('blur',()=>keys.clear());
+function tick(now){
+  frame=null;
+  const dt=Math.min(.05,lastTime?(now-lastTime)/1000:1/60);lastTime=now;
+  const movement={f:Number(keys.has('w')||keys.has('arrowup'))-Number(keys.has('s')||keys.has('arrowdown')),s:Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'))};
+  const walking=Boolean(movement.f||movement.s)&&!dialog.open;
+  if(walking){
+    const sin=Math.sin(look.yaw),cos=Math.cos(look.yaw);
+    const dx=sin*movement.f+cos*movement.s,dz=-cos*movement.f+sin*movement.s;
+    const speed=keys.has('shift')?32:17,scale=speed*dt/(Math.hypot(dx,dz)||1);
+    moveInStreet(position,dx*scale,dz*scale);
+    if(travel){travel=null;city.marker(0,0,false);}
+    updateStatus('EXPLORING THE DISTRICT');
   }
-});
-
-function requestFrame() {
-  if (ready && inView && !document.hidden && frame === null) frame = requestAnimationFrame(tick);
-}
-function tick(now) {
-  frame = null;
-  const delta = lastTime ? Math.min((now - lastTime) / 1000, .05) : 1 / 60;
-  lastTime = now;
-  elapsed += delta;
-  if (travel) {
-    const arrived = !animated || advanceTravel(position, velocity, travel.end, delta);
-    if (arrived) {
-      Object.assign(position, travel.end);
-      velocity.x = velocity.z = 0;
-      const done = travel.onArrival;
-      travel = null; city.marker(0, 0, false);
-      status.textContent = 'CHOOSE A DESTINATION. MAKE YOUR OWN WAY.';
-      done?.();
-    }
-    dirty = true;
+  if(travel&&!dialog.open){
+    const target=travel.path[travel.index];
+    if(target){
+      const dx=target.x-position.x,dz=target.z-position.z;
+      const len=Math.hypot(dx,dz),step=Math.min(len,72*dt);
+      if(len>.001)moveInStreet(position,dx/len*step,dz/len*step);
+      if(Math.hypot(target.x-position.x,target.z-position.z)<.8){
+        position.x=target.x;position.z=target.z;travel.index++;
+        if(travel.index>=travel.path.length){
+          const done=travel.onArrival;travel=null;city.marker(0,0,false);updateStatus('ARRIVED');done?.();
+        }else setMarker();
+      }
+    }else{travel=null;city.marker(0,0,false);}
   }
-  const lookX = animated && !dialog.open ? pointer.x : 0;
-  const lookY = animated && !dialog.open ? pointer.y : 0;
-  if (!animated) view.x = view.y = 0;
-  view.x += (lookX - view.x) * Math.min(1, delta * 3);
-  view.y += (lookY - view.y) * Math.min(1, delta * 3);
-  city.camera.position.set(position.x, 4.2, position.z);
-  city.camera.lookAt(position.x + view.x * 9, 7 - view.y * 4, position.z - 42);
-  // Projection follows the actual camera matrix rather than a simulated parallax.
+  const smooth=1-Math.exp(-dt*18);
+  look.yaw+=(look.targetYaw-look.yaw)*smooth;
+  look.pitch+=(look.targetPitch-look.pitch)*smooth;
+  city.camera.position.set(position.x,2.75,position.z);
+  const ahead=28*Math.cos(look.pitch);
+  city.camera.lookAt(position.x+Math.sin(look.yaw)*ahead,2.75+Math.sin(look.pitch)*28,position.z-Math.cos(look.yaw)*ahead);
   city.camera.updateMatrixWorld();
-  for (const { destination, element } of markers) {
-    const point = city.project(destination.x, 3.8, destination.z);
-    const ahead = position.z - destination.z;
-    const visible = entered && point.visible && ahead > 3 && ahead < 90;
-    element.hidden = !visible;
-    if (visible) element.style.transform = `translate(${point.x}px, ${point.y}px) translate(-50%, -50%)`;
+  for(const {destination,element} of markers){
+    const p=city.project(destination.x,3.7,destination.z);
+    const visible=entered&&p.visible&&Math.hypot(position.x-destination.x,position.z-destination.z)<110;
+    element.hidden=!visible;
+    if(visible)element.style.transform=`translate(${p.x}px,${p.y}px) translate(-50%,-50%)`;
   }
-  document.querySelector('#coordinates').textContent = `${Math.abs(position.z).toFixed(2)} ${position.z < 0 ? 'S' : 'N'} · ${Math.abs(position.x).toFixed(2)} ${position.x < 0 ? 'W' : 'E'}`;
-  document.querySelector('#map-player').style.top = `${(position.z + 148) / 183 * 90}px`;
-  if (dirty || animated) city.render(delta, elapsed, animated && !dialog.open);
-  dirty = false;
-  if ((animated && !dialog.open) || travel) requestFrame();
+  coordinates.textContent=`${Math.abs(position.z).toFixed(1)} ${position.z<0?'S':'N'} · ${Math.abs(position.x).toFixed(1)} ${position.x<0?'W':'E'}`;
+  mapPlayer.style.left=`${((position.x-CITY.minX)/(CITY.maxX-CITY.minX)*100).toFixed(1)}%`;
+  mapPlayer.style.top=`${((CITY.maxZ-position.z)/(CITY.maxZ-CITY.minZ)*100).toFixed(1)}%`;
+  mapPlayer.style.transform=`translate(-50%,-50%) rotate(${look.yaw}rad)`;
+  city.render(dt,animated&&!dialog.open);
+  if(animated||travel||walking||drag.active||Math.abs(look.yaw-look.targetYaw)>.0001||Math.abs(look.pitch-look.targetPitch)>.0001)requestFrame();
 }
-
-function unavailable(message) {
-  ready = false;
-  travel = null;
-  if (frame !== null) cancelAnimationFrame(frame);
-  frame = null;
-  document.body.classList.add('city-unavailable');
-  document.querySelector('#world-markers').replaceChildren();
-  status.textContent = message;
-  canvas.setAttribute('tabindex', '-1');
-  canvas.setAttribute('aria-hidden', 'true');
-}
-
-try {
-  const { createCity } = await import('./city.js?v=20261108');
-  city = createCity(canvas);
-  city.resize();
-  for (const destination of destinations) {
-    const element = document.createElement('button');
-    element.className = 'world-marker'; element.type = 'button'; element.hidden = true;
-    const diamond = document.createElement('span'); diamond.className = 'diamond'; diamond.setAttribute('aria-hidden', 'true');
-    const label = document.createElement('span');
-    const number = document.createElement('small'); number.textContent = `DISTRICT ${destination.number}`;
-    const name = document.createElement('strong'); name.textContent = `${destination.name} ↗`;
-    label.append(number, name); element.append(diamond, label);
-    element.setAttribute('aria-label', `Travel to ${destination.name}`);
-    element.addEventListener('click', () => goToDestination(destination.id, element));
-    document.querySelector('#world-markers').append(element);
-    markers.push({ destination, element });
+function unavailable(message){ready=false;travel=null;if(frame!==null)cancelAnimationFrame(frame);frame=null;document.body.classList.add('city-unavailable');updateStatus(message);}
+try{
+  const module=await import('./city.js?v=nd4');city=module.createCity(canvas);city.resize();canvas.dataset.pedestrians=String(city.stats?.pedestrians||0);canvas.dataset.vehicles=String(city.stats?.vehicles||0);canvas.dataset.glbModels='true';
+  for(const destination of destinations){
+    const element=document.createElement('button');element.className='world-marker';element.type='button';element.hidden=true;
+    const diamond=document.createElement('span');diamond.className='diamond';diamond.setAttribute('aria-hidden','true');
+    const label=document.createElement('span');const num=document.createElement('small');num.textContent=`DISTRICT ${destination.number}`;
+    const name=document.createElement('strong');name.textContent=`${destination.name} ↗`;label.append(num,name);element.append(diamond,label);
+    element.setAttribute('aria-label',`Travel to ${destination.name}`);
+    element.addEventListener('click',()=>goToDestination(destination.id,element));document.querySelector('#world-markers').append(element);markers.push({destination,element});
   }
-  ready = true;
-  status.textContent = animated ? 'YOUR CITY. YOUR DIRECTION.' : 'REDUCED MOTION — CLICK TO CHANGE LOCATION';
-  addEventListener('resize', () => { city.resize(); dirty = true; requestFrame(); });
-  document.addEventListener('visibilitychange', () => { lastTime = 0; dirty = true; requestFrame(); });
-  new IntersectionObserver(entries => {
-    inView = entries[0].isIntersecting;
-    if (!inView && frame !== null) { cancelAnimationFrame(frame); frame = null; }
-    if (!inView) { travel = null; velocity.x = velocity.z = 0; city.marker(0, 0, false); }
-    lastTime = 0; dirty = true; requestFrame();
-  }, { threshold: .05 }).observe(canvas);
-  canvas.addEventListener('webglcontextlost', event => {
-    event.preventDefault();
-    unavailable('3D PAUSED. USE TEXT VIEW, OR RELOAD TO RE-ENTER.');
-  });
+  ready=true;updateStatus('DRAG TO LOOK · CLICK ROAD TO MOVE · WASD TO WALK');
+  window.addEventListener('resize',()=>{city.resize();requestFrame();});
+  document.addEventListener('visibilitychange',()=>{lastTime=0;requestFrame();});
+  new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;if(!inView&&frame!==null){cancelAnimationFrame(frame);frame=null;}lastTime=0;requestFrame();},{threshold:.01}).observe(canvas);
+  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();unavailable('3D PAUSED. USE TEXT VIEW OR RELOAD.');});
   requestFrame();
-} catch (error) {
-  console.warn('The 3D city is unavailable; the HTML website remains accessible.', error);
-  unavailable('3D IS UNAVAILABLE ON THIS DEVICE. EXPLORE THE TEXT VIEW BELOW.');
-}
+}catch(error){console.error('Failed to initialize Neon District 4.0',error);unavailable('3D UNAVAILABLE. TEXT VIEW REMAINS ACCESSIBLE.');}

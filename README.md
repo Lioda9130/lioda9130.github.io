@@ -1,76 +1,23 @@
-# Lioda9130 — Neon District
+# Lioda9130 — Neon District 4.0
 
-An original cyberpunk city and personal website. Click the boulevard to travel through a procedural 3D scene, or use the Work, About, and Connect destinations. Inspired by immersive spatial websites; no third-party site's artwork or code is copied.
+Live site: https://lioda9130.github.io/
 
-Website: https://lioda9130.github.io/
-
-## Structure
-
-- `docs/index.html`: homepage content, metadata, and structured data
-- `docs/styles.css`: responsive layout and styles
-- `docs/app.js`: pointer/keyboard navigation, camera travel, dialogs, motion preferences, and graceful fallback
-- `docs/city.js`: procedural buildings, signs, lights, atmosphere, and street raycasting
-- `docs/city-life.js`: instanced walking pedestrians and animated air taxis
-- `docs/navigation.js`: destination positions and movement bounds
-- `docs/vendor/`: self-hosted Three.js 0.170.0 and its MIT license
-- `docs/favicon.svg`: site icon
-- `docs/robots.txt` and `docs/sitemap.xml`: search discovery
-- `docs/404.html`: missing-page response
-
-Buildless HTML, CSS, and JavaScript modules. No package installation or build step. Three.js is pinned and served from this repository, with no runtime CDN requests. The city needs a browser with WebGL 2; the HTML content remains available without 3D or JavaScript.
+Installed from the user-supplied install_neon_district_4.py package (SHA-256: 2156f3d4d2f4a7bbb83f5492e205fef119c15ba092fafee2e59ce234762e9d70).
+The package contains 34 GLB models, local surface textures, city navigation and animated traffic/pedestrians. Its texture paths were corrected to match the packaged files.
 
 ## Explore
 
-- Click or tap the street to move to that position. Buildings and sky are not movement targets.
-- Movement retains momentum when you click a new target, with gradual acceleration and braking.
-- Animated pedestrians walk along the sidewalks; air taxis travel above the boulevard. Mobile devices use fewer characters and vehicles.
-- Choose a numbered marker, map destination, or navigation link to travel to a section and open its information panel.
-- Focus the scene and use the arrow keys to move; `R` resets the view and `Escape` cancels travel.
-- `Motion: off` freezes ambient animation and makes travel immediate. System reduced-motion preferences are respected.
-- `Text view` provides all content and links without the 3D experience.
-- Touch dragging scrolls the page; a tap moves through the scene.
+- Drag the scene to look around in 360 degrees.
+- Click a road to travel, or walk with WASD / arrow keys. Hold Shift to move faster.
+- Choose Work, About or Connect to travel to a section.
+- Use Reset view, Motion and Text view controls as needed.
 
-## Preview
+## Development
 
-With Python installed, run from the repository directory:
+The site uses static HTML, CSS and JavaScript with self-hosted Three.js. Serve docs over HTTP with VS Code Live Server, or python -m http.server 8000 --directory docs.
 
-```powershell
-python -m http.server 8000 --directory docs
-```
+Run node tests/verify.mjs to check model loading, asset references and road routes. Browser checks are still needed for rendering and performance.
 
-Open http://localhost:8000/ in a browser. Stop with Ctrl+C. Alternatively, use VS Code Live Server with `docs` as its server root. Do not open `index.html` through `file://`, because browser modules require HTTP.
+GitHub Pages publishes docs from main. Local backups are excluded from Git. No build step is needed.
 
-## Checks
-
-With Node.js 22 or later, run the dependency-free integration checks:
-
-```powershell
-node --experimental-vm-modules tests/verify.mjs
-```
-
-These cover navigation bounds, camera-ray geometry, app initialization, destination dialogs, interrupted travel, reduced motion, touch scroll discrimination, and WebGL fallback. They do not replace visual browser testing or GPU performance measurements.
-
-## Publish changes
-
-GitHub Pages publishes the `docs` folder on the `main` branch. Commit and push changes to update the website. Check the repository Actions tab for the deployment result.
-
-```powershell
-git add -- docs README.md
-git commit -m "Update website"
-git push origin main
-```
-
-## Google Search Console
-
-Publication and Google indexing are separate steps. Neither indexing nor ranking is guaranteed.
-
-1. Sign in to https://search.google.com/search-console/ with your own Google account.
-2. Add a URL-prefix property for `https://lioda9130.github.io/`.
-3. Choose HTML file verification and place the provided file, unchanged, in `docs/`. Alternatively, add the supplied verification meta tag inside the homepage `<head>`.
-4. Commit and push, wait for deployment, then verify ownership in Search Console.
-5. Submit `sitemap.xml` in Sitemaps.
-6. Inspect `https://lioda9130.github.io/` and request indexing. Monitor the indexing report for results.
-
-Never commit passwords or access tokens. A Search Console verification file or meta tag is intended to be public.
-
-Official guidance: https://developers.google.com/search/docs/crawling-indexing/ask-google-to-recrawl
+Publication does not guarantee Google indexing. The site retains its canonical URL, structured data, robots.txt and sitemap.xml; ownership verification and indexing requests can be handled in Google Search Console.

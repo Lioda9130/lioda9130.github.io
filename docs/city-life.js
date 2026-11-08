@@ -1,80 +1,107 @@
 import * as THREE from './vendor/three.module.js';
+import {CITY} from './navigation.js?v=nd4';
+import {loadModel, modelPath} from './neon4-loader.js?v=nd4';
 
-// Shared instanced geometry keeps a moving crowd inexpensive to draw.
-export function createCityLife(scene, compact = false) {
-  const count = compact ? 18 : 34;
-  const clothing = new THREE.MeshBasicMaterial({ color: '#ffffff' });
-  const bodies = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), clothing, count * 6);
-  const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: '#d5a68f' }), count);
-  bodies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  heads.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  bodies.frustumCulled = heads.frustumCulled = false;
-  bodies.name = 'walking-pedestrians'; heads.name = 'pedestrian-heads';
-  const palette = ['#60cad4', '#bc568c', '#a7b5d0', '#d39458', '#6688ab'];
-  for (let i = 0; i < count; i++) {
-    for (let part = 0; part < 6; part++) {
-      bodies.setColorAt(i * 6 + part, new THREE.Color(part === 2 || part === 3 ? '#36465f' : palette[i % palette.length]));
+// Dynamic actors using original character / vehicle GLBs, not cubes or sprites.
+export function createCityLife(scene,compact=false){
+  const people=[],vehicles=[],drones=[];
+  const crowd=compact?22:54,traffic=compact?9:21;
+  let clock=0;
+  const names=['sedan','taxi','hatchback','delivery_van','bus','sport'];
+  const pedModels=['pedestrian_0','pedestrian_1','pedestrian_2','pedestrian_3'];
+  const routeSegments=[
+    {axis:'z',value:-18.6,start:88,end:-179},
+    {axis:'z',value:18.6,start:-179,end:88},
+    {axis:'x',value:-29.1,start:-111,end:111},
+    {axis:'x',value:-66.8,start:111,end:-111},
+    {axis:'z',value:-63.0,start:-177,end:85},
+    {axis:'z',value:62.3,start:85,end:-177},
+  ];
+  function prepBones(model){
+    // Rebase baked vertices at the physical joints before rotating in place.
+    const joints={arm_L:1.48,arm_R:1.48,leg_L:.82,leg_R:.82};
+    for(const [name,pivot] of Object.entries(joints)){
+      const bone=model.getObjectByName(name);if(!bone)continue;
+      let adjusted=false;
+      bone.traverse(child=>{if(child.isMesh){
+        const geom=child.geometry.clone();geom.translate(0,-pivot,0);child.geometry=geom;adjusted=true;
+      }});
+      if(adjusted)bone.position.y=pivot;
     }
   }
-  scene.add(bodies, heads);
-  const parent = new THREE.Object3D();
-  const piece = new THREE.Object3D();
-  const transform = new THREE.Matrix4();
-  function part(mesh, index, x, y, z, sx, sy, sz, angle = 0) {
-    piece.position.set(x, y, z); piece.scale.set(sx, sy, sz); piece.rotation.set(angle, 0, 0);
-    piece.updateMatrix(); transform.multiplyMatrices(parent.matrix, piece.matrix);
-    mesh.setMatrixAt(index, transform);
-  }
-  const taxis = [];
-  const chassis = new THREE.BoxGeometry(1.65, .55, 3.6);
-  const glass = new THREE.BoxGeometry(1.25, .4, 1.7);
-  const lamp = new THREE.BoxGeometry(1.4, .08, .06);
-  const shell = new THREE.MeshBasicMaterial({ color: '#455e75' });
-  const window = new THREE.MeshBasicMaterial({ color: '#153c51' });
-  const light = new THREE.MeshBasicMaterial({ color: '#8af9ff' });
-  const tail = new THREE.MeshBasicMaterial({ color: '#ff4c87' });
-  for (let i = 0; i < (compact ? 4 : 7); i++) {
-    const vehicle = new THREE.Group(); vehicle.name = 'air-taxi';
-    vehicle.add(new THREE.Mesh(chassis, shell));
-    const cabin = new THREE.Mesh(glass, window); cabin.position.y = .42; vehicle.add(cabin);
-    for (const [z, mat] of [[-1.83, light], [1.83, tail]]) {
-      const strip = new THREE.Mesh(lamp, mat); strip.position.z = z; vehicle.add(strip);
+  async function spawnPeople(){
+    const base=await Promise.all(pedModels.map(name=>loadModel(modelPath(name))));
+    base.forEach(prepBones);
+    for(let i=0;i<crowd;i++){
+      const p=base[i%base.length].clone(true);
+      p.scale.setScalar(.88+(i%7)*.028);
+      const r=routeSegments[i%routeSegments.length];
+      scene.add(p);
+      people.push({object:p,route:r,phase:(i*.071)%1,speed:0.0040+(i%9)*.0005,wait:0,
+        arms:[p.getObjectByName('arm_L'),p.getObjectByName('arm_R')],legs:[p.getObjectByName('leg_L'),p.getObjectByName('leg_R')]});
     }
-    const underglow = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 3.2), new THREE.MeshBasicMaterial({ color: '#54e3ef', transparent: true, opacity: .25, side: THREE.DoubleSide }));
-    underglow.rotation.x = -Math.PI / 2; underglow.position.y = -.3; vehicle.add(underglow);
-    scene.add(vehicle); taxis.push(vehicle);
-  }
-  let clock = 0;
-  function update(delta) {
-    clock += delta;
-    for (let i = 0; i < count; i++) {
-      const side = i % 2 ? 1 : -1;
-      const direction = i % 4 < 2 ? 1 : -1;
-      const progress = (i * 17.31 + clock * (.8 + i % 5 * .13)) % 250;
-      const z = direction > 0 ? -210 + progress : 40 - progress;
-      const gait = clock * (3.4 + i % 3 * .35) + i * 2.1;
-      const swing = Math.sin(gait) * .55;
-      parent.position.set(side * (9.05 + (i % 3 - 1) * .43), .21 + Math.abs(Math.sin(gait)) * .035, z);
-      parent.rotation.y = direction > 0 ? 0 : Math.PI;
-      parent.updateMatrix();
-      const k = i * 6;
-      part(bodies, k, 0, 1.3, 0, .48, .65, .3);
-      part(bodies, k + 1, 0, .93, 0, .38, .18, .28);
-      part(bodies, k + 2, -.13, .52, Math.sin(swing) * .28, .16, .78, .18, swing);
-      part(bodies, k + 3, .13, .52, -Math.sin(swing) * .28, .16, .78, .18, -swing);
-      part(bodies, k + 4, -.32, 1.19, -Math.sin(swing) * .2, .13, .6, .14, -swing);
-      part(bodies, k + 5, .32, 1.19, Math.sin(swing) * .2, .13, .6, .14, swing);
-      part(heads, i, 0, 1.83, 0, .19, .23, .19);
+    // At least a dozen passersby visible at the entrance before walking anywhere.
+    for(let i=0;i<Math.min(14,people.length);i++){
+      const p=people[i];p.route=routeSegments[i%2];p.phase=i%2===0?.018+i*.009:.91+i*.005;
     }
-    bodies.instanceMatrix.needsUpdate = heads.instanceMatrix.needsUpdate = true;
-    taxis.forEach((taxi, i) => {
-      const direction = i % 2 ? 1 : -1;
-      const progress = (clock * (8 + i % 3 * 2) + i * 47) % 310;
-      taxi.position.set(direction * 5.5, 9 + i % 3 * 2.8 + Math.sin(clock * .8 + i) * .16, direction > 0 ? -260 + progress : 50 - progress);
-      taxi.rotation.y = direction > 0 ? Math.PI : 0;
-      taxi.rotation.z = Math.sin(clock * .5 + i) * .025;
+    update(0);
+  }
+  async function spawnCars(){
+    const base=await Promise.all(names.map(name=>loadModel(modelPath(name))));
+    for(let i=0;i<traffic;i++){
+      const nameIndex=i%base.length;const car=base[nameIndex].clone(true);
+      scene.add(car);vehicles.push({object:car,lane:i%4,phase:(.085+i*.083)%1,speed:.035+(i%4)*.009,type:nameIndex});
+    }
+    const airborne=await loadModel(modelPath('sport'));
+    for(let i=0;i<(compact?2:4);i++){
+      const hover=airborne.clone(true);hover.scale.setScalar(.6);
+      scene.add(hover);drones.push(hover);
+    }
+    update(0);
+  }
+  Promise.allSettled([spawnPeople(),spawnCars()]).then(outcomes=>{
+    for(const o of outcomes)if(o.status==='rejected')console.warn('GLB actor initialization:',o.reason);
+  });
+  function update(delta){
+    clock+=delta;
+    for(let i=0;i<people.length;i++){
+      const p=people[i];p.phase=(p.phase+delta*p.speed)%1;
+      const r=p.route,t=p.phase;const progress=r.start+(r.end-r.start)*t;
+      const sign=Math.sign(r.end-r.start);
+      if(r.axis==='z'){
+        p.object.position.set(r.value,0,progress);
+        p.object.rotation.y=sign<0?0:Math.PI;
+      }else{
+        p.object.position.set(progress,0,r.value);
+        p.object.rotation.y=sign>0?-Math.PI/2:Math.PI/2;
+      }
+      const gait=Math.sin(clock*(5+i%3)+i*.83);
+      p.object.position.y=Math.abs(gait)*.026;
+      p.arms[0]&&(p.arms[0].rotation.x=gait*.37);
+      p.arms[1]&&(p.arms[1].rotation.x=-gait*.37);
+      p.legs[0]&&(p.legs[0].rotation.x=-gait*.29);
+      p.legs[1]&&(p.legs[1].rotation.x=gait*.29);
+    }
+    vehicles.forEach((v,i)=>{
+      v.phase=(v.phase+delta*v.speed)%1;
+      const t=v.phase;
+      if(v.lane<2){
+        const south=v.lane===0;
+        const z=south?(95-t*286):(-191+t*286);
+        v.object.position.set(south?-5.4:5.4,.02,z);
+        v.object.rotation.y=south?0:Math.PI;
+      }else{
+        const east=v.lane===2;
+        v.object.position.set(east?-112+t*224:112-t*224,.03,east?-44.7:-51.0);
+        v.object.rotation.y=east?-Math.PI/2:Math.PI/2;
+      }
+    });
+    drones.forEach((m,i)=>{
+      const t=clock*.12+i*1.31;
+      m.position.set(Math.sin(t)*95,22+i*5+Math.sin(clock*.9+i)*.45,-52+Math.cos(t*.7)*125);
+      m.rotation.y=Math.sin(t)*.48;
+      m.rotation.z=Math.sin(clock+i)*.04;
     });
   }
-  update(0);
-  return { update };
+  return{update,stats:{pedestrians:crowd,vehicles:traffic,drones:compact?2:4},get loadedPeople(){return people.length;},get loadedVehicles(){return vehicles.length;}};
 }

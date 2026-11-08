@@ -1,0 +1,176 @@
+{
+  "buildings": [
+    {
+      "file": "building_00.glb",
+      "x": -72,
+      "z": -138,
+      "width": 22.4,
+      "depth": 35.2,
+      "height": 82,
+      "style": 0,
+      "brand": "TACHYON"
+    },
+    {
+      "file": "building_01.glb",
+      "x": -28,
+      "z": -138,
+      "width": 15.4,
+      "depth": 35.2,
+      "height": 65,
+      "style": 5,
+      "brand": "ATLAS KIOSK"
+    },
+    {
+      "file": "building_02.glb",
+      "x": 28,
+      "z": -138,
+      "width": 15.4,
+      "depth": 35.2,
+      "height": 112,
+      "style": 10,
+      "brand": "NEON RAMEN"
+    },
+    {
+      "file": "building_03.glb",
+      "x": 72,
+      "z": -138,
+      "width": 22.4,
+      "depth": 35.2,
+      "height": 70,
+      "style": 5,
+      "brand": "ASTRAL DATA"
+    },
+    {
+      "file": "building_04.glb",
+      "x": -72,
+      "z": -78,
+      "width": 22.4,
+      "depth": 26.2,
+      "height": 62,
+      "style": 10,
+      "brand": "HIKARI MARKET"
+    },
+    {
+      "file": "building_05.glb",
+      "x": -28,
+      "z": -78,
+      "width": 15.4,
+      "depth": 26.2,
+      "height": 88,
+      "style": 3,
+      "brand": "KALPA LAB"
+    },
+    {
+      "file": "building_06.glb",
+      "x": 28,
+      "z": -78,
+      "width": 15.4,
+      "depth": 26.2,
+      "height": 105,
+      "style": 10,
+      "brand": "NOVA MOTORS"
+    },
+    {
+      "file": "building_07.glb",
+      "x": 72,
+      "z": -78,
+      "width": 22.4,
+      "depth": 26.2,
+      "height": 80,
+      "style": 3,
+      "brand": "KEI COFFEE"
+    },
+    {
+      "file": "building_08.glb",
+      "x": -72,
+      "z": -18,
+      "width": 22.4,
+      "depth": 25.2,
+      "height": 95,
+      "style": 8,
+      "brand": "ORBITAL"
+    },
+    {
+      "file": "building_09.glb",
+      "x": -28,
+      "z": -18,
+      "width": 15.4,
+      "depth": 25.2,
+      "height": 69,
+      "style": 3,
+      "brand": "NIGHT MARKET"
+    },
+    {
+      "file": "building_10.glb",
+      "x": 28,
+      "z": -18,
+      "width": 15.4,
+      "depth": 25.2,
+      "height": 142,
+      "style": 8,
+      "brand": "SUMMIT TECH"
+    },
+    {
+      "file": "building_11.glb",
+      "x": 72,
+      "z": -18,
+      "width": 22.4,
+      "depth": 25.2,
+      "height": 74,
+      "style": 1,
+      "brand": "DAWN STATION"
+    },
+    {
+      "file": "building_12.glb",
+      "x": -72,
+      "z": 42,
+      "width": 22.4,
+      "depth": 34.2,
+      "height": 54,
+      "style": 8,
+      "brand": "NEXUS"
+    },
+    {
+      "file": "building_13.glb",
+      "x": -28,
+      "z": 42,
+      "width": 15.4,
+      "depth": 34.2,
+      "height": 82,
+      "style": 1,
+      "brand": "MONO HOTEL"
+    },
+    {
+      "file": "building_14.glb",
+      "x": 72,
+      "z": 42,
+      "width": 22.4,
+      "depth": 34.2,
+      "height": 101,
+      "style": 6,
+      "brand": "LUMEN"
+    }
+  ],
+  "vehicle_types": [
+    "sedan",
+    "taxi",
+    "hatchback",
+    "delivery_van",
+    "bus",
+    "sport"
+  ],
+  "pedestrians": [
+    "pedestrian_0",
+    "pedestrian_1",
+    "pedestrian_2",
+    "pedestrian_3"
+  ],
+  "props": [
+    "streetlamp",
+    "busstop",
+    "vending",
+    "planter",
+    "bench",
+    "holo_ad"
+  ]
+}

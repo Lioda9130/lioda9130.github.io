@@ -4,3 +4,6 @@ Thumbs.db
 .env.*
 node_modules/
 __pycache__/
+
+.neon-backups/
+*.bak
