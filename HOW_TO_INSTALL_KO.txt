@@ -1,0 +1,33 @@
+Neon District 5.0 — Codex / GitHub 계획 공유 패키지
+====================================================
+
+GitHub 연결은 읽기만 가능하고 쓰기 작업에서 403이 발생했습니다.
+이 파일을 로컬 저장소에 적용한 뒤 커밋/푸시해야 GitHub와 Codex가 볼 수 있습니다.
+
+1. Python 설치 파일을 Windows 다운로드 폴더에 저장하고 PowerShell에서 실행하세요:
+
+python "$env:USERPROFILE\Downloads\install_nd5_collaboration.py" "C:\Users\Lioda\Documents\git\Quant\sites\lioda9130-home"
+
+2. 적용 파일 검토 및 GitHub 반영:
+
+cd "C:\Users\Lioda\Documents\git\Quant\sites\lioda9130-home"
+git status --short
+git add AGENTS.md planning/ .github/ISSUE_TEMPLATE/neon-district-5-review.md
+git commit -m "docs: add Neon District 5.0 Codex planning workspace"
+git branch --show-current
+git push origin main
+
+* 마지막 push 명령은 출력된 현재 브랜치가 main일 때만 사용하세요.
+* 기존 파일이 있으면 설치가 중단되며 어떤 것도 덮어쓰지 않습니다.
+* 사이트 3D JS, GLB, 페이지의 현재 표시/이동 기능은 변경되지 않습니다.
+
+3. Codex에 다음 문장으로 요청:
+"현재 GitHub 저장소의 AGENTS.md와 planning/NEON_DISTRICT_5_ROADMAP.md를 읽고,
+코드와 비교해서 planning/CODEX_REVIEW.md에 기술 검토·첫 PR 범위·테스트 계획을 작성해줘.
+아직 도시 전체를 구현하지 말고 먼저 설계 검토만 진행해줘."
+
+4. GitHub Issues > New issue 메뉴에서
+"Neon District 5.0 — Codex design review" 템플릿을 선택하면 협업 토론 공간을 열 수 있습니다.
+
+주의: Codex와 ChatGPT는 서로 자동으로 실시간 대화하지 않습니다.
+둘이 공유하는 내용은 GitHub에 커밋한 문서, Issue와 PR 댓글입니다.
