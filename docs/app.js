@@ -1,4 +1,5 @@
-import { destinations, homePosition, destinationPosition, moveInStreet, routeTo, CITY } from './navigation.js?v=city-night';
+import {observeAssets,assetSnapshot} from './asset-state.js';
+import { destinations, homePosition, destinationPosition, moveInStreet, routeTo, CITY } from './navigation.js?v=nd5-detail';
 
 const canvas=document.querySelector('#city');
 const status=document.querySelector('#travel-status');
@@ -16,7 +17,12 @@ try {const value=localStorage.getItem('neon-district-motion');if(value==='on'||v
 const keys=new Set();
 const look={yaw:0,pitch:0,targetYaw:0,targetPitch:0};
 const drag={active:false,moved:0,x:0,y:0,id:null};
-let needsFrame=true;
+let diagnostics=null, assetsDirty=true;
+observeAssets(()=>{
+  assetsDirty=true;
+  // Asset callbacks finish in a microtask before the next animation frame.
+  requestFrame();
+});
 
 function requestFrame(){if(ready&&inView&&!document.hidden&&frame===null)frame=requestAnimationFrame(tick);}
 function enter(){entered=true;intro.classList.add('dismissed');}
@@ -84,7 +90,7 @@ canvas.addEventListener('pointerup',e=>{
 });
 canvas.addEventListener('pointercancel',()=>{drag.active=false;});
 window.addEventListener('keydown',e=>{
-  if(!ready||dialog.open||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
+  if(!ready||dialog.open||document.activeElement!==canvas)return;
   const k=e.key.toLowerCase();
   if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift'].includes(k)){
     keys.add(k);if(k!=='shift'){enter();e.preventDefault();}requestFrame();
@@ -92,7 +98,7 @@ window.addEventListener('keydown',e=>{
   else if(k==='escape'){travel=null;city.marker(0,0,false);updateStatus('TRAVEL CANCELLED');requestFrame();}
 });
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
-window.addEventListener('blur',()=>keys.clear());
+window.addEventListener('blur',()=>{keys.clear();lastTime=0;diagnostics?.interrupt();});
 function tick(now){
   frame=null;
   const dt=Math.min(.05,lastTime?(now-lastTime)/1000:1/60);lastTime=now;
@@ -138,11 +144,16 @@ function tick(now){
   mapPlayer.style.top=`${((CITY.maxZ-position.z)/(CITY.maxZ-CITY.minZ)*100).toFixed(1)}%`;
   mapPlayer.style.transform=`translate(-50%,-50%) rotate(${look.yaw}rad)`;
   city.render(dt,animated&&!dialog.open);
+  const assetsChanged=assetsDirty;
+  if(assetsDirty){assetsDirty=false;const loaded=city.loadedActors;
+    canvas.dataset.pedestrians=String(loaded.pedestrians);canvas.dataset.vehicles=String(loaded.vehicles);
+    const assets=assetSnapshot();canvas.dataset.assetState=assets.pending?'loading':assets.failed?'partial':'ready';}
+  diagnostics?.frame(now,animated&&inView&&!document.hidden&&!dialog.open,assetsChanged);
   if(animated||travel||walking||drag.active||Math.abs(look.yaw-look.targetYaw)>.0001||Math.abs(look.pitch-look.targetPitch)>.0001)requestFrame();
 }
 function unavailable(message){ready=false;travel=null;if(frame!==null)cancelAnimationFrame(frame);frame=null;document.body.classList.add('city-unavailable');updateStatus(message);}
 try{
-  const module=await import('./city.js?v=city-night');city=module.createCity(canvas);city.resize();canvas.dataset.pedestrians=String(city.stats?.pedestrians||0);canvas.dataset.vehicles=String(city.stats?.vehicles||0);canvas.dataset.glbModels='true';
+  const module=await import('./city.js?v=nd5-detail');city=module.createCity(canvas);city.resize();canvas.dataset.pedestrians='0';canvas.dataset.vehicles='0';canvas.dataset.glbModels='true';
   for(const destination of destinations){
     const element=document.createElement('button');element.className='world-marker';element.type='button';element.hidden=true;
     const diamond=document.createElement('span');diamond.className='diamond';diamond.setAttribute('aria-hidden','true');
@@ -153,8 +164,14 @@ try{
   }
   ready=true;updateStatus('DRAG TO LOOK · CLICK ROAD TO MOVE · WASD TO WALK');
   window.addEventListener('resize',()=>{city.resize();requestFrame();});
-  document.addEventListener('visibilitychange',()=>{lastTime=0;requestFrame();});
-  new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;if(!inView&&frame!==null){cancelAnimationFrame(frame);frame=null;}lastTime=0;requestFrame();},{threshold:.01}).observe(canvas);
+  document.addEventListener('visibilitychange',()=>{lastTime=0;keys.clear();if(document.hidden)diagnostics?.interrupt();requestFrame();});
+  new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;if(!inView)diagnostics?.interrupt();if(!inView&&frame!==null){cancelAnimationFrame(frame);frame=null;}lastTime=0;requestFrame();},{threshold:.01}).observe(canvas);
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();unavailable('3D PAUSED. USE TEXT VIEW OR RELOAD.');});
+  if(new URLSearchParams(location.search).get('debug')==='1'){
+    const {createDiagnostics}=await import('./diagnostics.js');
+    diagnostics=createDiagnostics({readCity:()=>city.diagnostics(),readCamera:()=>({position:{...position},yaw:look.yaw,pitch:look.pitch}),
+      setMotion(value){animated=value;lastTime=0;syncMotion();},requestFrame,
+      setView(point){Object.assign(position,point);travel=null;keys.clear();look.yaw=look.targetYaw=look.pitch=look.targetPitch=0;city.marker(0,0,false);city.setTime(0);animated=false;lastTime=0;enter();syncMotion();requestFrame();}});
+  }
   requestFrame();
 }catch(error){console.error('Failed to initialize Neon District 4.0',error);unavailable('3D UNAVAILABLE. TEXT VIEW REMAINS ACCESSIBLE.');}

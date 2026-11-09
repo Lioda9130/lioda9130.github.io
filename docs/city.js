@@ -1,7 +1,9 @@
+import {addFacadeDetails} from './street-detail.js';
 import * as THREE from './vendor/three.module.js';
-import { CITY, nearStreet } from './navigation.js?v=city-night';
-import { createCityLife } from './city-life.js?v=city-night';
-import { loadModel,modelPath } from './neon4-loader.js?v=city-night';
+import {trackAsset,fetchAsset} from './asset-state.js';
+import { CITY, nearStreet } from './navigation.js?v=nd5-detail';
+import { createCityLife } from './city-life.js?v=nd5-detail';
+import { loadModel,modelPath } from './neon4-loader.js?v=nd5-detail';
 
 // Neon District 3.1 — detailed blue-hour street and unique facades. Procedural layouts are
 // intentionally distinct at street level; six local PBR maps ship with the patch.
@@ -41,9 +43,19 @@ export function createCity(canvas) {
     concreteLite:std('#9aabb9',.91,.03), roof:std('#3f4d61',.84,.13),
   };
   const loader=new THREE.TextureLoader();
+  function surface(path){
+    let texture;
+    trackAsset(path,'surface',()=>new Promise((resolve,reject)=>{
+      let finished=false;
+      const done=error=>{if(finished)return;finished=true;clearTimeout(timer);error?reject(new Error('Surface load failed: '+path)):resolve();};
+      const timer=setTimeout(()=>done(true),15000);
+      texture=loader.load(path,()=>done(),undefined,()=>done(true));
+    })).catch(error=>console.warn(error));
+    return texture;
+  }
   function pbr(file,color,rough=.7,metal=.1,repeat=[2,2]){
-    const t=loader.load(`./assets/${file}_color.jpg`);
-    const n=loader.load(`./assets/${file}_normal.jpg`);
+    const t=surface(`./assets/${file}_color.jpg`);
+    const n=surface(`./assets/${file}_normal.jpg`);
     for(const x of [t,n]){x.wrapS=x.wrapT=THREE.RepeatWrapping;x.repeat.set(...repeat);x.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}
     t.colorSpace=THREE.SRGBColorSpace;
     return new THREE.MeshStandardMaterial({color,map:t,normalMap:n,normalScale:new THREE.Vector2(.32,.32),roughness:rough,metalness:metal});
@@ -102,9 +114,7 @@ export function createCity(canvas) {
   const manifestPath='./assets/neon4/manifest.json';
   const modelMetrics={loaded:0,total:15,failed:0};
   async function populateBuildings(){
-    const result=await fetch(manifestPath);
-    if(!result.ok)throw new Error(`Manifest HTTP ${result.status}`);
-    const manifest=await result.json();
+    const manifest=await trackAsset(manifestPath,'manifest',async()=>JSON.parse(new TextDecoder().decode(await fetchAsset(manifestPath))));
     modelMetrics.total=manifest.buildings.length;
     for(const b of manifest.buildings){
       const placeholder=add(modelBuildings,b.x,b.height*.38,b.z,b.width*.75,b.height*.76,b.depth*.75,mats.dark);
@@ -114,6 +124,7 @@ export function createCity(canvas) {
       try {
         const model=await loadModel(modelPath(b.file.replace(/\.glb$/,'')));
         model.position.set(b.x,0,b.z);
+        if(['building_12.glb','building_13.glb','building_14.glb'].includes(b.file))addFacadeDetails(model,b);
         // Models are placed at 1:1 world scale to avoid stretched windows.
         modelBuildings.add(model);
         const placeholder=placeholders[i];placeholder.parent?.remove(placeholder);
@@ -122,7 +133,7 @@ export function createCity(canvas) {
       } catch(error){console.warn('Building model load failed',b.file,error);modelMetrics.failed++;}
     }));
   }
-  populateBuildings().catch(error=>console.error('GLB building district:',error));
+  trackAsset('district:buildings','spawn',populateBuildings).catch(error=>console.error('GLB building district:',error));
   // Distant towers are architecturally varied and outside the walkable district.
   const skyline=new THREE.Group();scene.add(skyline);
   const towers=[
@@ -275,6 +286,13 @@ export function createCity(canvas) {
       if(hit.distanceTo(camera.position)>165||!nearStreet(hit.x,hit.z))return null;return {x:hit.x,z:hit.z};
     },
     project(x,y,z){projected.set(x,y,z).project(camera);return {x:(projected.x*.5+.5)*width,y:(-projected.y*.5+.5)*height,visible:projected.z>-1&&projected.z<1&&Math.abs(projected.x)<1&&Math.abs(projected.y)<1};},
+    setTime(time){clock=time;activity.setTime(time);train.position.x=-105+((clock*12)%210);sculpture.rotation.z=time*.08;for(let i=1;i<drop.length;i+=3)drop[i]=((i*17.17-time*14)%50+50)%50;rainGeo.attributes.position.needsUpdate=true;},
+    diagnostics(){
+      const frustum=new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
+      const inFrustum=activity.actors.filter(o=>frustum.intersectsBox(new THREE.Box3().setFromObject(o))).length;
+      return {quality:compact?'low':'default',viewport:{width,height,dpr:window.devicePixelRatio,pixelRatio:renderer.getPixelRatio()},configured:activity.stats,loaded:{pedestrians:activity.loadedPeople,vehicles:activity.loadedVehicles,drones:activity.loadedDrones},inFrustum,buildings:{...modelMetrics},render:{...renderer.info.render},memory:{...renderer.info.memory},simulationSeconds:clock};
+    },
+    get loadedActors(){return {pedestrians:activity.loadedPeople,vehicles:activity.loadedVehicles,drones:activity.loadedDrones};},
     stats:activity.stats,modelMetrics
   };
 }
