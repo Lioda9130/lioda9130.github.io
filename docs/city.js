@@ -1,8 +1,9 @@
+import {addFacadeDetails} from './street-detail.js';
 import * as THREE from './vendor/three.module.js';
 import {trackAsset,fetchAsset} from './asset-state.js';
-import { CITY, nearStreet } from './navigation.js?v=nd5-m0';
-import { createCityLife } from './city-life.js?v=nd5-m0';
-import { loadModel,modelPath } from './neon4-loader.js?v=nd5-m0';
+import { CITY, nearStreet } from './navigation.js?v=nd5-detail';
+import { createCityLife } from './city-life.js?v=nd5-detail';
+import { loadModel,modelPath } from './neon4-loader.js?v=nd5-detail';
 
 // Neon District 3.1 — detailed blue-hour street and unique facades. Procedural layouts are
 // intentionally distinct at street level; six local PBR maps ship with the patch.
@@ -123,6 +124,7 @@ export function createCity(canvas) {
       try {
         const model=await loadModel(modelPath(b.file.replace(/\.glb$/,'')));
         model.position.set(b.x,0,b.z);
+        if(['building_12.glb','building_13.glb','building_14.glb'].includes(b.file))addFacadeDetails(model,b);
         // Models are placed at 1:1 world scale to avoid stretched windows.
         modelBuildings.add(model);
         const placeholder=placeholders[i];placeholder.parent?.remove(placeholder);

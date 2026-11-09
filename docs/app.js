@@ -1,5 +1,5 @@
 import {observeAssets,assetSnapshot} from './asset-state.js';
-import { destinations, homePosition, destinationPosition, moveInStreet, routeTo, CITY } from './navigation.js?v=nd5-m0';
+import { destinations, homePosition, destinationPosition, moveInStreet, routeTo, CITY } from './navigation.js?v=nd5-detail';
 
 const canvas=document.querySelector('#city');
 const status=document.querySelector('#travel-status');
@@ -153,7 +153,7 @@ function tick(now){
 }
 function unavailable(message){ready=false;travel=null;if(frame!==null)cancelAnimationFrame(frame);frame=null;document.body.classList.add('city-unavailable');updateStatus(message);}
 try{
-  const module=await import('./city.js?v=nd5-m0');city=module.createCity(canvas);city.resize();canvas.dataset.pedestrians='0';canvas.dataset.vehicles='0';canvas.dataset.glbModels='true';
+  const module=await import('./city.js?v=nd5-detail');city=module.createCity(canvas);city.resize();canvas.dataset.pedestrians='0';canvas.dataset.vehicles='0';canvas.dataset.glbModels='true';
   for(const destination of destinations){
     const element=document.createElement('button');element.className='world-marker';element.type='button';element.hidden=true;
     const diamond=document.createElement('span');diamond.className='diamond';diamond.setAttribute('aria-hidden','true');
