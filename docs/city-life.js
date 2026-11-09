@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.js';
-import {CITY} from './navigation.js?v=city-night';
-import {loadModel, modelPath} from './neon4-loader.js?v=city-night';
+import {trackAsset} from './asset-state.js';
+import {CITY} from './navigation.js?v=nd5-m0';
+import {loadModel, modelPath} from './neon4-loader.js?v=nd5-m0';
 
 // Dynamic actors using original character / vehicle GLBs, not cubes or sprites.
 export function createCityLife(scene,compact=false){
@@ -29,8 +30,14 @@ export function createCityLife(scene,compact=false){
       if(adjusted)bone.position.y=pivot;
     }
   }
+  async function available(names){
+    const results=await Promise.allSettled(names.map(name=>loadModel(modelPath(name))));
+    const models=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
+    if(!models.length)throw new Error('No actor models available: '+names.join(', '));
+    return models;
+  }
   async function spawnPeople(){
-    const base=await Promise.all(pedModels.map(name=>loadModel(modelPath(name))));
+    const base=await available(pedModels);
     base.forEach(prepBones);
     for(let i=0;i<crowd;i++){
       const p=base[i%base.length].clone(true);
@@ -44,28 +51,30 @@ export function createCityLife(scene,compact=false){
     for(let i=0;i<Math.min(14,people.length);i++){
       const p=people[i];p.route=routeSegments[i%2];p.phase=i%2===0?.018+i*.009:.91+i*.005;
     }
+    for(const p of people)p.startPhase=p.phase;
     update(0);
   }
   async function spawnCars(){
-    const base=await Promise.all(names.map(name=>loadModel(modelPath(name))));
+    const base=await available(names);
     for(let i=0;i<traffic;i++){
       const nameIndex=i%base.length;const car=base[nameIndex].clone(true);
       scene.add(car);vehicles.push({object:car,lane:i%4,phase:(.085+i*.083)%1,speed:.035+(i%4)*.009,type:nameIndex});
     }
-    const airborne=await loadModel(modelPath('sport'));
+    for(const v of vehicles)v.startPhase=v.phase;
+    const airborne=base[base.length-1];
     for(let i=0;i<(compact?2:4);i++){
       const hover=airborne.clone(true);hover.scale.setScalar(.6);
       scene.add(hover);drones.push(hover);
     }
     update(0);
   }
-  Promise.allSettled([spawnPeople(),spawnCars()]).then(outcomes=>{
+  Promise.allSettled([trackAsset('actors:people','spawn',spawnPeople),trackAsset('actors:vehicles','spawn',spawnCars)]).then(outcomes=>{
     for(const o of outcomes)if(o.status==='rejected')console.warn('GLB actor initialization:',o.reason);
   });
   function update(delta){
     clock+=delta;
     for(let i=0;i<people.length;i++){
-      const p=people[i];p.phase=(p.phase+delta*p.speed)%1;
+      const p=people[i];p.phase=(p.startPhase+clock*p.speed)%1;
       const r=p.route,t=p.phase;const progress=r.start+(r.end-r.start)*t;
       const sign=Math.sign(r.end-r.start);
       if(r.axis==='z'){
@@ -83,7 +92,7 @@ export function createCityLife(scene,compact=false){
       p.legs[1]&&(p.legs[1].rotation.x=gait*.29);
     }
     vehicles.forEach((v,i)=>{
-      v.phase=(v.phase+delta*v.speed)%1;
+      v.phase=(v.startPhase+clock*v.speed)%1;
       const t=v.phase;
       if(v.lane<2){
         const south=v.lane===0;
@@ -103,5 +112,5 @@ export function createCityLife(scene,compact=false){
       m.rotation.z=Math.sin(clock+i)*.04;
     });
   }
-  return{update,stats:{pedestrians:crowd,vehicles:traffic,drones:compact?2:4},get loadedPeople(){return people.length;},get loadedVehicles(){return vehicles.length;}};
+  return{update,setTime(t){clock=t;update(0);},get actors(){return [...people.map(p=>p.object),...vehicles.map(v=>v.object),...drones];},get loadedDrones(){return drones.length;},stats:{pedestrians:crowd,vehicles:traffic,drones:compact?2:4},get loadedPeople(){return people.length;},get loadedVehicles(){return vehicles.length;}};
 }
