@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import {trackAsset, fetchAsset} from './asset-state.js';
 
 // Small, dependency-free glTF 2.0 binary loader for the original GLB assets in this release.
 // Supports the attributes/materials exported by our model builder. Avoids CDN imports.
@@ -26,7 +27,8 @@ function access(doc,bin,id) {
   return output;
 }
 
-function parse(buffer,url) {
+async function parse(buffer,url) {
+  const images=[];
   const data=new DataView(buffer);
   if(data.getUint32(0,true)!==0x46546c67 || data.getUint32(4,true)!==2)throw new Error('Invalid GLB v2: '+url);
   const size=data.getUint32(8,true);
@@ -48,7 +50,13 @@ function parse(buffer,url) {
     const bufferView=json.bufferViews[image.bufferView];if(!bufferView)return null;
     const bytes=bin.slice(bufferView.byteOffset||0,(bufferView.byteOffset||0)+bufferView.byteLength);
     const objectURL=URL.createObjectURL(new Blob([bytes],{type:image.mimeType||'image/png'}));
-    const tex=new THREE.TextureLoader().load(objectURL,()=>URL.revokeObjectURL(objectURL));
+    let tex;
+    images.push(trackAsset(url+'#image-'+id,'image',()=>new Promise((resolve,reject)=>{
+      let finished=false;
+      const finish=(error)=>{if(finished)return;finished=true;clearTimeout(timer);URL.revokeObjectURL(objectURL);error?reject(new Error('Image decode failed: '+url+'#'+id)):resolve();};
+      const timer=setTimeout(()=>finish(true),15000);
+      tex=new THREE.TextureLoader().load(objectURL,()=>finish(),undefined,()=>finish(true));
+    })));
     tex.colorSpace=THREE.SRGBColorSpace;
     tex.flipY=false;
     tex.anisotropy=4;
@@ -115,12 +123,13 @@ function parse(buffer,url) {
   json.nodes?.forEach((node,i)=>node.children?.forEach(j=>nodes[i].add(nodes[j])));
   const scene=new THREE.Group();scene.name=url.split('/').pop()||'GLB asset';
   for(const rootIndex of json.scenes?.[json.scene??0]?.nodes||[]){scene.add(nodes[rootIndex]);}
+  await Promise.all(images);
   return scene;
 }
 
 export async function loadModel(path) {
   if(!cache.has(path)){
-    const promise=fetch(path).then(r=>{if(!r.ok)throw new Error(`Failed to fetch ${path} (${r.status})`);return r.arrayBuffer();}).then(data=>parse(data,path));
+    const promise=trackAsset(path,'model',async()=>parse(await fetchAsset(path),path)).catch(error=>{cache.delete(path);throw error;});
     cache.set(path,promise);
   }
   const base=await cache.get(path);
