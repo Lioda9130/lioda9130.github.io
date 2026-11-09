@@ -49,7 +49,7 @@ try{
     const scene=new THREE.Scene(),life=createCityLife(scene,compact);
     const deadline=Date.now()+5000;
     while((life.loadedPeople!==(compact?22:54)||life.loadedVehicles!==(compact?9:21))&&Date.now()<deadline)await new Promise(r=>setTimeout(r,5));
-    assert.equal(life.loadedPeople,compact?22:54,'One missing pedestrian model does not remove all pedestrians');
+    assert.equal(life.loadedPeople,compact?22:54,'Local adult templates populate the scene without external character requests');
     assert.equal(life.loadedVehicles,compact?9:21,'One missing vehicle model does not remove all traffic');
     assert.equal(life.loadedDrones,compact?2:4);
     life.setTime(0);const initial=life.actors.map(a=>a.position.toArray());
@@ -59,4 +59,4 @@ try{
   }
 }finally{globalThis.fetch=originalFetch;THREE.TextureLoader.prototype.load=originalTexture;}
 assert.equal(assetSnapshot().pending,0);
-console.log('PASS: FPS statistics, interrupted samples, asset state, HTTP retry, decode failure/readiness, partial actor loading and deterministic actor poses.');
+console.log('PASS: FPS statistics, interrupted samples, asset state, HTTP retry, decode failure/readiness, partial vehicle loading, local adult spawning and deterministic actor poses.');
