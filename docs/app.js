@@ -1,5 +1,5 @@
 import {observeAssets,assetSnapshot} from './asset-state.js';
-import { destinations, homePosition, destinationPosition, moveInStreet, routeTo, CITY } from './navigation.js?v=nd5-detail';
+import { destinations, homePosition, destinationPosition, moveInStreet, routeTo, CITY } from './navigation.js?v=realism-6';
 
 const canvas=document.querySelector('#city');
 const status=document.querySelector('#travel-status');
@@ -129,9 +129,9 @@ function tick(now){
   const smooth=1-Math.exp(-dt*18);
   look.yaw+=(look.targetYaw-look.yaw)*smooth;
   look.pitch+=(look.targetPitch-look.pitch)*smooth;
-  city.camera.position.set(position.x,2.75,position.z);
+  city.camera.position.set(position.x,1.72,position.z);
   const ahead=28*Math.cos(look.pitch);
-  city.camera.lookAt(position.x+Math.sin(look.yaw)*ahead,2.75+Math.sin(look.pitch)*28,position.z-Math.cos(look.yaw)*ahead);
+  city.camera.lookAt(position.x+Math.sin(look.yaw)*ahead,1.72+Math.sin(look.pitch)*28,position.z-Math.cos(look.yaw)*ahead);
   city.camera.updateMatrixWorld();
   for(const {destination,element} of markers){
     const p=city.project(destination.x,3.7,destination.z);
@@ -153,7 +153,7 @@ function tick(now){
 }
 function unavailable(message){ready=false;travel=null;if(frame!==null)cancelAnimationFrame(frame);frame=null;document.body.classList.add('city-unavailable');updateStatus(message);}
 try{
-  const module=await import('./city.js?v=nd5-detail');city=module.createCity(canvas);city.resize();canvas.dataset.pedestrians='0';canvas.dataset.vehicles='0';canvas.dataset.glbModels='true';
+  const module=await import('./city.js?v=realism-6');city=module.createCity(canvas);city.resize();canvas.dataset.pedestrians='0';canvas.dataset.vehicles='0';canvas.dataset.glbModels='true';
   for(const destination of destinations){
     const element=document.createElement('button');element.className='world-marker';element.type='button';element.hidden=true;
     const diamond=document.createElement('span');diamond.className='diamond';diamond.setAttribute('aria-hidden','true');

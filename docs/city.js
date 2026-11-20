@@ -1,9 +1,10 @@
+import {createArchitecture,createReflectionEnvironment,initializeArchitectureMaterials} from './architecture.js';
 import {addFacadeDetails} from './street-detail.js';
 import * as THREE from './vendor/three.module.js';
 import {trackAsset,fetchAsset} from './asset-state.js';
-import { CITY, nearStreet } from './navigation.js?v=nd5-detail';
-import { createCityLife } from './city-life.js?v=nd5-detail';
-import { loadModel,modelPath } from './neon4-loader.js?v=nd5-detail';
+import { CITY, nearStreet } from './navigation.js?v=realism-6';
+import { createCityLife } from './city-life.js?v=realism-6';
+import { loadModel,modelPath } from './neon4-loader.js?v=realism-6';
 
 // Neon District 3.1 — detailed blue-hour street and unique facades. Procedural layouts are
 // intentionally distinct at street level; six local PBR maps ship with the patch.
@@ -13,18 +14,21 @@ export function createCity(canvas) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,compact?1.12:1.50));
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.19;
+  renderer.toneMappingExposure=1.05;
+  renderer.shadowMap.enabled=!compact;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x070b20);
-  scene.fog=new THREE.FogExp2(0x11152d,.0035);
-  const camera=new THREE.PerspectiveCamera(65,1,.1,850);
+  scene.fog=new THREE.FogExp2(0x1b263b,.0027);
+  initializeArchitectureMaterials(renderer);
+  const reflection=createReflectionEnvironment(renderer);scene.environment=reflection.texture;scene.environmentIntensity=.42;
+  const camera=new THREE.PerspectiveCamera(60,1,.1,850);
   const fogPlane=new THREE.Mesh(new THREE.SphereGeometry(490,28,16),new THREE.ShaderMaterial({
     side:THREE.BackSide,depthWrite:false,fog:false,
     vertexShader:'varying vec3 dir; void main(){dir=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
     fragmentShader:'varying vec3 dir; void main(){float h=clamp(normalize(dir).y*.5+.5,0.,1.); vec3 low=vec3(.12,.055,.19);vec3 high=vec3(.012,.025,.07);gl_FragColor=vec4(mix(low,high,smoothstep(.15,.95,h)),1.);}'
   }));scene.add(fogPlane);
-  scene.add(new THREE.HemisphereLight('#829cc9','#181327',1.05));
-  const sun=new THREE.DirectionalLight('#a9bded',.8);sun.position.set(-100,125,65);scene.add(sun);
+  scene.add(new THREE.HemisphereLight('#a4b8cf','#252530',1.4));
+  const sun=new THREE.DirectionalLight('#a9bded',.8);sun.position.set(-60,90,60);sun.castShadow=!compact;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-70;sun.shadow.camera.right=70;sun.shadow.camera.top=70;sun.shadow.camera.bottom=-70;sun.shadow.camera.far=240;sun.shadow.normalBias=.07;sun.shadow.bias=-.00015;scene.add(sun);scene.add(sun.target);
   const fill=new THREE.DirectionalLight('#ec68c9',.65);fill.position.set(85,55,-115);scene.add(fill);
   for(const [x,z,color] of [[-48,12,'#ff4ab8'],[48,12,'#45e7ff'],[0,-108,'#9d71ff']]){const light=new THREE.PointLight(color,95,48,1.5);light.position.set(x,7,z);scene.add(light);}
   let seed=913031;const rnd=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
@@ -60,11 +64,11 @@ export function createCity(canvas) {
     t.colorSpace=THREE.SRGBColorSpace;
     return new THREE.MeshStandardMaterial({color,map:t,normalMap:n,normalScale:new THREE.Vector2(.32,.32),roughness:rough,metalness:metal});
   }
-  mats.road=pbr('asphalt','#919ca5',.48,.12,[16,20]);
+  mats.road=pbr('asphalt','#687078',.73,.03,[16,20]);
   mats.sidewalk=pbr('paving','#c3ccd3',.87,.03,[15,18]);
   mats.panel=pbr('panel','#8a9caf',.56,.23,[2,4]);
   function add(parent,x,y,z,w,h,d,mat,geometry=geom.box){
-    const o=new THREE.Mesh(geometry,mat);o.position.set(x,y,z);o.scale.set(w,h,d);parent.add(o);return o;
+    const o=new THREE.Mesh(geometry,mat);o.receiveShadow=true;o.position.set(x,y,z);o.scale.set(w,h,d);parent.add(o);return o;
   }
   function plane(parent,x,y,z,w,d,mat){const m=add(parent,x,y,z,w,d,1,mat,geom.plane);m.rotation.x=-Math.PI/2;return m;}
   function tex(width,height,draw){const c=document.createElement('canvas');c.width=width;c.height=height;draw(c.getContext('2d'),width,height);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;return t;}
@@ -122,9 +126,9 @@ export function createCity(canvas) {
     }
     await Promise.all(manifest.buildings.map(async(b,i)=>{
       try {
-        const model=await loadModel(modelPath(b.file.replace(/\.glb$/,'')));
+        const model=createArchitecture(b,i);
         model.position.set(b.x,0,b.z);
-        if(['building_12.glb','building_13.glb','building_14.glb'].includes(b.file))addFacadeDetails(model,b);
+
         // Models are placed at 1:1 world scale to avoid stretched windows.
         modelBuildings.add(model);
         const placeholder=placeholders[i];placeholder.parent?.remove(placeholder);
@@ -204,8 +208,8 @@ export function createCity(canvas) {
   // Street-level realism: printed advertising boxes, drains, wet patches,
   // guard rails and a small set of broadleaf trees at the open plaza.
   const roadDecals=new THREE.Group();city.add(roadDecals);
-  const wetMat=new THREE.MeshBasicMaterial({color:'#8eacbb',transparent:true,opacity:.13,depthWrite:false});
-  const wetMat2=new THREE.MeshBasicMaterial({color:'#738fa6',transparent:true,opacity:.10,depthWrite:false});
+  const wetMat=new THREE.MeshStandardMaterial({color:'#26353e',roughness:.2,metalness:.28,transparent:true,opacity:.32,depthWrite:false});
+  const wetMat2=new THREE.MeshStandardMaterial({color:'#35404a',roughness:.3,metalness:.18,transparent:true,opacity:.25,depthWrite:false});
   for(let i=0;i<58;i++){
     const x=rand(-14,14),z=rand(-162,82);
     if(CITY.zs.some(v=>Math.abs(v-z)<16))continue;
@@ -278,6 +282,8 @@ export function createCity(canvas) {
       rainGeo.attributes.position.needsUpdate=true;
       marker.scale.setScalar(1+Math.sin(clock*4)*.1);
     }
+    sun.position.set(camera.position.x-60,90,camera.position.z+60);sun.target.position.set(camera.position.x,0,camera.position.z);sun.target.updateMatrixWorld();
+    activity.updateDetail(camera);
     fogPlane.position.copy(camera.position);renderer.render(scene,camera);
   }
   return {camera,resize,render,marker(x,z,visible){marker.position.set(x,.16,z);marker.visible=visible;},
@@ -290,7 +296,7 @@ export function createCity(canvas) {
     diagnostics(){
       const frustum=new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
       const inFrustum=activity.actors.filter(o=>frustum.intersectsBox(new THREE.Box3().setFromObject(o))).length;
-      return {quality:compact?'low':'default',viewport:{width,height,dpr:window.devicePixelRatio,pixelRatio:renderer.getPixelRatio()},configured:activity.stats,loaded:{pedestrians:activity.loadedPeople,vehicles:activity.loadedVehicles,drones:activity.loadedDrones},inFrustum,buildings:{...modelMetrics},render:{...renderer.info.render},memory:{...renderer.info.memory},simulationSeconds:clock};
+      return {quality:compact?'low':'default',viewport:{width,height,dpr:window.devicePixelRatio,pixelRatio:renderer.getPixelRatio()},realism:activity.realism,configured:activity.stats,loaded:{pedestrians:activity.loadedPeople,vehicles:activity.loadedVehicles,drones:activity.loadedDrones},inFrustum,buildings:{...modelMetrics},render:{...renderer.info.render},memory:{...renderer.info.memory},simulationSeconds:clock};
     },
     get loadedActors(){return {pedestrians:activity.loadedPeople,vehicles:activity.loadedVehicles,drones:activity.loadedDrones};},
     stats:activity.stats,modelMetrics

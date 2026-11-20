@@ -1,12 +1,14 @@
+import {loadRealismAsset,createSkinnedCitizen,createHeroCar,animateHeroCar} from './realism-assets.js';
 import {createPedestrian,pedestrianRig,animatePedestrian,prepareVehicle,vehicleWheels,rollWheels} from './street-detail.js';
 import * as THREE from './vendor/three.module.js';
 import {trackAsset} from './asset-state.js';
-import {CITY} from './navigation.js?v=nd5-detail';
-import {loadModel, modelPath} from './neon4-loader.js?v=nd5-detail';
+import {CITY} from './navigation.js?v=realism-6';
+import {loadModel, modelPath} from './neon4-loader.js?v=realism-6';
 
 // Dynamic actors using original character / vehicle GLBs, not cubes or sprites.
-export function createCityLife(scene,compact=false){
-  const people=[],vehicles=[],drones=[];
+export function createCityLife(scene,compact=false,options={}){
+  const people=[],vehicles=[],drones=[],heroes=[];
+  let citizenAsset=null,heroAsset=null;
   const crowd=compact?22:54,traffic=compact?9:21;
   let clock=0;
   const names=['sedan','taxi','hatchback','delivery_van','bus','sport'];
@@ -26,14 +28,16 @@ export function createCityLife(scene,compact=false){
     return models;
   }
   async function spawnPeople(){
-    const base=pedModels.map((_,i)=>createPedestrian(i));
+    try{citizenAsset=await (options.loadCitizen||(()=>loadRealismAsset('./assets/realism/citizen-rig.glb')))();}catch(error){console.warn('Skeletal citizen unavailable; using local fallback.',error);}
+    const base=citizenAsset?null:pedModels.map((_,i)=>createPedestrian(i));
     for(let i=0;i<crowd;i++){
-      const p=base[i%base.length].clone(true);
+      const skinned=citizenAsset?createSkinnedCitizen(citizenAsset,i):null;
+      const p=skinned?skinned.root:base[i%base.length].clone(true);
       p.scale.setScalar(.94+(i%7)*.019);
       const r=routeSegments[i%routeSegments.length];
       scene.add(p);
       people.push({object:p,route:r,phase:(i*.071)%1,speed:0.0040+(i%9)*.0005,wait:0,
-        rig:pedestrianRig(p)});
+        rig:skinned?null:pedestrianRig(p),skinned});
     }
     // At least a dozen passersby visible at the entrance before walking anywhere.
     for(let i=0;i<Math.min(14,people.length);i++){
@@ -50,6 +54,9 @@ export function createCityLife(scene,compact=false){
       scene.add(car);vehicles.push({object:car,lane:i%4,phase:(.085+i*.083)%1,speed:.035+(i%4)*.009,type:nameIndex,wheels:vehicleWheels(car)});
     }
     for(const v of vehicles)v.startPhase=v.phase;
+    try{heroAsset=await (options.loadCar||(()=>loadRealismAsset('./assets/realism/concept-car.glb')))();
+      if(heroAsset)for(let i=0;i<(compact?1:3);i++){const car=createHeroCar(heroAsset,i);car.visible=false;scene.add(car);heroes.push(car);}
+    }catch(error){console.warn('Detailed traffic unavailable; using local vehicles.',error);}
     const airborne=base[base.length-1];
     for(let i=0;i<(compact?2:4);i++){
       const hover=airborne.clone(true);hover.scale.setScalar(.6);
@@ -74,7 +81,8 @@ export function createCityLife(scene,compact=false){
         p.object.rotation.y=sign>0?-Math.PI/2:Math.PI/2;
       }
       const speed=Math.abs(r.end-r.start)*p.speed;
-      animatePedestrian(p.rig,clock*speed,speed,i*.83);
+      if(p.skinned)p.skinned.mixer.setTime(clock*speed/1.35*p.skinned.duration+(i*.137)%p.skinned.duration);
+      else animatePedestrian(p.rig,clock*speed,speed,i*.83);
     }
     vehicles.forEach((v,i)=>{
       v.phase=(v.startPhase+clock*v.speed)%1;
@@ -98,5 +106,12 @@ export function createCityLife(scene,compact=false){
       m.rotation.z=Math.sin(clock+i)*.04;
     });
   }
-  return{update,setTime(t){clock=t;update(0);},get actors(){return [...people.map(p=>p.object),...vehicles.map(v=>v.object),...drones];},get loadedDrones(){return drones.length;},stats:{pedestrians:crowd,vehicles:traffic,drones:compact?2:4},get loadedPeople(){return people.length;},get loadedVehicles(){return vehicles.length;}};
+  function updateDetail(camera){
+    const nearest=vehicles.filter(v=>v.type!==3&&v.type!==4).map(v=>({v,d:v.object.position.distanceToSquared(camera.position)})).filter(x=>x.d<(compact?28:45)**2).sort((a,b)=>a.d-b.d).slice(0,heroes.length);
+    vehicles.forEach(v=>v.object.visible=true);
+    heroes.forEach((hero,i)=>{const selected=nearest[i];hero.visible=Boolean(selected);if(!selected)return;
+      const v=selected.v;v.object.visible=false;hero.position.copy(v.object.position);hero.rotation.copy(v.object.rotation);animateHeroCar(hero,clock*v.speed*(v.lane<2?286:224));
+    });
+  }
+  return{update,updateDetail,get realism(){return {skeletalPeople:people.filter(p=>p.skinned).length,heroCars:heroes.filter(c=>c.visible).length};},setTime(t){clock=t;update(0);},get actors(){return [...people.map(p=>p.object),...vehicles.map(v=>v.object),...drones];},get loadedDrones(){return drones.length;},stats:{pedestrians:crowd,vehicles:traffic,drones:compact?2:4},get loadedPeople(){return people.length;},get loadedVehicles(){return vehicles.length;}};
 }

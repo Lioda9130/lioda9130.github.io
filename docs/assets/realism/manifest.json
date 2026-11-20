@@ -1,0 +1,53 @@
+{
+  "release": "realism-6",
+  "sources": [
+    {
+      "asset": "citizen-rig.glb",
+      "source": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan",
+      "license": "CC-BY-4.0",
+      "author": "Cesium",
+      "adaptation": "Original file retained; runtime skin/clothing vertex colors replace original logo texture; scale/orientation and independent animation mixers."
+    },
+    {
+      "asset": "concept-car.glb",
+      "source": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CarConcept",
+      "license": "CC-BY-4.0",
+      "author": "Eric Chadwick / Darmstadt Graphics Group GmbH",
+      "adaptation": "Original file retained; static geometry batched, glass simplified, paint variations, normalized dimensions and wheel animation applied at runtime."
+    },
+    {
+      "asset": "concrete-*.jpg",
+      "source": "https://polyhaven.com/a/concrete_wall_006",
+      "license": "CC0",
+      "author": "Poly Haven",
+      "adaptation": "Original 1K diffuse/OpenGL normal/roughness JPEG maps retained."
+    }
+  ],
+  "assets": [
+    {
+      "file": "citizen-rig.glb",
+      "bytes": 438044,
+      "sha256": "b7001eaeea8254bd44773bcd247e78696d94169388fbb2a1800fc69434e777d9"
+    },
+    {
+      "file": "concept-car.glb",
+      "bytes": 11778688,
+      "sha256": "c272098089d78c5cd9fd9f24ff50ee8acf8d932c55f2d55fc10adb6c8998966b"
+    },
+    {
+      "file": "concrete-color.jpg",
+      "bytes": 769415,
+      "sha256": "fea247dd085cd05d8deb335234c834764d622029da351f8bcc8913935316bacd"
+    },
+    {
+      "file": "concrete-normal.jpg",
+      "bytes": 1195078,
+      "sha256": "4ff16bb96fc2df3ef71d22007151aff1d8bf7cb10a493d3f8e973213a99dd428"
+    },
+    {
+      "file": "concrete-roughness.jpg",
+      "bytes": 255004,
+      "sha256": "ceee98c940b8f1e49169af880497aa60eaae5de0ac5b3603aa753b76f687c455"
+    }
+  ]
+}
