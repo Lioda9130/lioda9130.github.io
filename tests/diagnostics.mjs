@@ -46,7 +46,7 @@ try{
   assert.equal(settled,false,'Model readiness waits for image decode');
   holdImages=false;held.forEach(fn=>fn());await pending;assert.equal(settled,true);
   for(const compact of [true,false]){
-    const scene=new THREE.Scene(),life=createCityLife(scene,compact);
+    const scene=new THREE.Scene(),life=createCityLife(scene,compact,{loadCitizen:async()=>null,loadCar:async()=>null});
     const deadline=Date.now()+5000;
     while((life.loadedPeople!==(compact?22:54)||life.loadedVehicles!==(compact?9:21))&&Date.now()<deadline)await new Promise(r=>setTimeout(r,5));
     assert.equal(life.loadedPeople,compact?22:54,'Local adult templates populate the scene without external character requests');
